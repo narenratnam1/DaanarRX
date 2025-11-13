@@ -20,11 +20,10 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
   const { units, userId, locations } = useFirebase();
   const toast = useToast();
   
-  const [daanaId, setDaanaId] = useState('');
-  const [qty, setQty] = useState('');
-  const [patientRef, setPatientRef] = useState('');
-  const [reason, setReason] = useState('');
-  const [unitDisplayName, setUnitDisplayName] = useState('');
+  const [daanaId, setDaanaId] = useState<string>('');
+  const [qty, setQty] = useState<string>('');
+  const [patientRef, setPatientRef] = useState<string>('');
+  const [reason, setReason] = useState<string>('');
   
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
@@ -61,7 +60,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     setQty('');
     setPatientRef('');
     setReason('');
-    setUnitDisplayName('');
     setAvailableQty(null);
     setQtyError('');
     setConfirmedUnit(null);
@@ -97,7 +95,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
       const querySnapshot = await getDocs(q);
       
-      if (!querySnapshot.empty) {
+      if (!querySnapshot.empty && querySnapshot.docs[0]) {
         const foundDoc = querySnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
@@ -111,7 +109,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       setPreviewLocationName(locationName);
       setShowPreviewModal(true);
     } else {
-      setUnitDisplayName('');
       setAvailableQty(null);
       showInfoModal('Error', 'Daana ID not found.');
     }
@@ -157,19 +154,24 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     }
     
     // Find the unit
-    let unit = units.find(u => u.daana_id === extractedDaanaId);
-    
-    if (!unit) {
-      // Try database lookup
-      const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
-      const querySnapshot = await getDocs(q);
-      
-      if (!querySnapshot.empty) {
-        const foundDoc = querySnapshot.docs[0];
+    let unit: Unit | null = null;
+    const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty && querySnapshot.docs[0]) {
+      const foundDoc = querySnapshot.docs[0];
+      unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
+    } else {
+      // Try by qr_code_value as fallback
+      const qrQuery = query(collection(db, 'units'), where('qr_code_value', '==', barcode));
+      const qrSnapshot = await getDocs(qrQuery);
+
+      if (!qrSnapshot.empty && qrSnapshot.docs[0]) {
+        const foundDoc = qrSnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
     }
-    
+
     // Only show modal if unit was found - silently ignore not found
     if (unit) {
       // Show preview modal
@@ -183,7 +185,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       }, 100); // Small delay to ensure scanner closes first
     } else {
       // Unit not found - just log it, don't show error modal
-      console.log('⚠️ Unit not found for ID:', extractedDaanaId);
+      console.log('⚠️ Unit not found for barcode:', barcode);
     }
   };
   
@@ -192,7 +194,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     if (previewUnit) {
       setDaanaId(previewUnit.daana_id);
       setAvailableQty(previewUnit.qty_total);
-      setUnitDisplayName(''); // Don't persist display name
       setConfirmedUnit(previewUnit); // Store confirmed unit for display
       setConfirmedLocationName(previewLocationName);
     }
@@ -225,7 +226,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
       const querySnapshot = await getDocs(q);
       
-      if (!querySnapshot.empty) {
+      if (!querySnapshot.empty && querySnapshot.docs[0]) {
         const foundDoc = querySnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
@@ -268,7 +269,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       const q = query(collection(db, 'units'), where('daana_id', '==', daanaIdToFind));
       const querySnapshot = await getDocs(q);
       
-      if (querySnapshot.empty) {
+      if (querySnapshot.empty || !querySnapshot.docs[0]) {
         showInfoModal('Error', 'Daana ID not found.');
         return;
       }
@@ -533,7 +534,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
                 value={daanaId}
                 onChangeText={(value: string) => {
                   setDaanaId(value);
-                  setUnitDisplayName('');
                 }}
                 placeholder="Scan internal DaanaRX QR" 
                 borderColor="$borderColor"

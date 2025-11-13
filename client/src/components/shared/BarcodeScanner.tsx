@@ -70,7 +70,11 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         device.label.toLowerCase().includes('rear')
       );
 
-      const deviceId = backCamera?.deviceId || videoDevices[0].deviceId;
+      const deviceId: string = backCamera?.deviceId || videoDevices[0]?.deviceId || '';
+      if (!deviceId) {
+        setError('No valid camera device found.');
+        return;
+      }
       setSelectedDeviceId(deviceId);
 
       // Start scanning with the selected device

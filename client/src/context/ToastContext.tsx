@@ -1,77 +1,163 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import Toast, { ToastProps } from '../components/shared/Toast';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { YStack, Text, Card } from 'tamagui';
+import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 
-interface ToastMessage {
+// Type definitions
+interface Toast {
   id: string;
   message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  duration?: number;
+  type: 'success' | 'error' | 'warning' | 'info';
+  duration: number;
 }
 
-interface ToastContextType {
-  showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning', duration?: number) => void;
+interface ToastContextValue {
   success: (message: string, duration?: number) => void;
   error: (message: string, duration?: number) => void;
-  info: (message: string, duration?: number) => void;
   warning: (message: string, duration?: number) => void;
+  info: (message: string, duration?: number) => void;
 }
 
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
+interface ToastProviderProps {
+  children: ReactNode;
+}
 
-export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+// Create context with undefined as default (will throw error if used without provider)
+const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
-  const showToast = useCallback((
-    message: string,
-    type: 'success' | 'error' | 'info' | 'warning' = 'info',
-    duration: number = 3000
-  ) => {
-    const id = `toast-${Date.now()}-${Math.random()}`;
-    const newToast: ToastMessage = { id, message, type, duration };
+export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
-    setToasts((prev) => [...prev, newToast]);
+  const addToast = useCallback((message: string, type: Toast['type'], duration: number = 3000): void => {
+    const id: string = `${Date.now()}-${Math.random()}`;
+    const newToast: Toast = { id, message, type, duration };
+
+    setToasts((prev: Toast[]) => [...prev, newToast]);
+
+    // Auto-remove toast after duration
+    setTimeout((): void => {
+      setToasts((prev: Toast[]) => prev.filter((t: Toast) => t.id !== id));
+    }, duration);
   }, []);
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  const removeToast = useCallback((id: string): void => {
+    setToasts((prev: Toast[]) => prev.filter((t: Toast) => t.id !== id));
   }, []);
 
-  const success = useCallback((message: string, duration?: number) => {
-    showToast(message, 'success', duration);
-  }, [showToast]);
+  const value: ToastContextValue = {
+    success: (message: string, duration?: number): void => addToast(message, 'success', duration),
+    error: (message: string, duration?: number): void => addToast(message, 'error', duration),
+    warning: (message: string, duration?: number): void => addToast(message, 'warning', duration),
+    info: (message: string, duration?: number): void => addToast(message, 'info', duration),
+  };
 
-  const error = useCallback((message: string, duration?: number) => {
-    showToast(message, 'error', duration);
-  }, [showToast]);
+  const getToastColor = (type: Toast['type']): string => {
+    switch (type) {
+      case 'success':
+        return '$green9';
+      case 'error':
+        return '$red9';
+      case 'warning':
+        return '$yellow9';
+      case 'info':
+        return '$blue9';
+      default:
+        return '$gray9';
+    }
+  };
 
-  const info = useCallback((message: string, duration?: number) => {
-    showToast(message, 'info', duration);
-  }, [showToast]);
-
-  const warning = useCallback((message: string, duration?: number) => {
-    showToast(message, 'warning', duration);
-  }, [showToast]);
+  const getToastIcon = (type: Toast['type']): JSX.Element => {
+    const iconProps: { size: number; color: string } = { size: 20, color: 'white' };
+    
+    switch (type) {
+      case 'success':
+        return <CheckCircle {...iconProps} />;
+      case 'error':
+        return <AlertCircle {...iconProps} />;
+      case 'warning':
+        return <AlertCircle {...iconProps} />;
+      case 'info':
+        return <Info {...iconProps} />;
+      default:
+        return <Info {...iconProps} />;
+    }
+  };
 
   return (
-    <ToastContext.Provider value={{ showToast, success, error, info, warning }}>
+    <ToastContext.Provider value={value}>
       {children}
-      {toasts.map((toast) => (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          type={toast.type}
-          duration={toast.duration}
-          onClose={() => removeToast(toast.id)}
-        />
-      ))}
+      
+      {/* Toast Container */}
+      {toasts.length > 0 && (
+        <YStack
+          position="fixed"
+          top="$4"
+          right="$4"
+          space="$2"
+          zIndex={9999}
+          pointerEvents="none"
+          maxWidth={400}
+          $xs={{ maxWidth: '90%', right: '5%' }}
+        >
+          {toasts.map((toast: Toast) => (
+            <Card
+              key={toast.id}
+              backgroundColor={getToastColor(toast.type)}
+              padding="$3"
+              borderRadius="$3"
+              shadowColor="rgba(0,0,0,0.3)"
+              shadowRadius={10}
+              shadowOffset={{ width: 0, height: 4 }}
+              pointerEvents="auto"
+              animation="quick"
+              enterStyle={{ opacity: 0, y: -20 }}
+              exitStyle={{ opacity: 0, y: -20 }}
+            >
+              <YStack space="$2">
+                <YStack flexDirection="row" alignItems="center" justifyContent="space-between">
+                  <YStack flexDirection="row" alignItems="center" space="$2" flex={1}>
+                    {getToastIcon(toast.type)}
+                    <Text
+                      color="white"
+                      fontSize="$3"
+                      fontWeight="500"
+                      flex={1}
+                      flexWrap="wrap"
+                    >
+                      {toast.message}
+                    </Text>
+                  </YStack>
+                  <button
+                    onClick={(): void => removeToast(toast.id)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    aria-label="Close notification"
+                  >
+                    <X size={16} color="white" />
+                  </button>
+                </YStack>
+              </YStack>
+            </Card>
+          ))}
+        </YStack>
+      )}
     </ToastContext.Provider>
   );
 };
 
-export const useToast = (): ToastContextType => {
-  const context = useContext(ToastContext);
-  if (!context) {
+export const useToast = (): ToastContextValue => {
+  const context: ToastContextValue | undefined = useContext(ToastContext);
+  if (context === undefined) {
     throw new Error('useToast must be used within a ToastProvider');
   }
   return context;
 };
+
+// Export types for use in other files
+export type { Toast, ToastContextValue, ToastProviderProps };

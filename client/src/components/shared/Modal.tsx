@@ -22,7 +22,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="rgba(0,0,0,0.4)"
-          // @ts-ignore - Tamagui position fixed type issue
           position="fixed"
           inset={0}
           zIndex={50}

@@ -31,10 +31,9 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
   const [ndcScanInput, setNdcScanInput] = useState('');
   const [ndcLookupStatus, setNdcLookupStatus] = useState('');
   const [showFallback, setShowFallback] = useState(false);
-  const [nameSearch, setNameSearch] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [nameSearch, setNameSearch] = useState<string>('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [fieldsLocked, setFieldsLocked] = useState(true);
   
   const [genericName, setGenericName] = useState('');
@@ -56,7 +55,7 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
 
   useEffect(() => {
     // Set today's date as default
-    const today = new Date().toISOString().split('T')[0];
+    const today: string = new Date().toISOString().split('T')[0] || '';
     setLotDate(today);
   }, []);
 
@@ -82,7 +81,7 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
       toast.success('Lot created successfully!', 3000);
       showInfoModal('Success', `Lot created successfully.`);
       setSelectedLotId(docRef.id);
-      setLotDate(new Date().toISOString().split('T')[0]);
+      setLotDate(new Date().toISOString().split('T')[0] || '');
       setLotSource('');
       setLotNotes('');
     } catch (error: any) {
@@ -160,11 +159,10 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
     setNdc('');
   };
 
-  const performSearch = async (searchTerm: string) => {
+  const performSearch = async (searchTerm: string): Promise<void> => {
     // Search both local Firestore and FDA database
     try {
-      setIsSearching(true);
-      const searchTermLower = searchTerm.toLowerCase();
+      const searchTermLower: string = searchTerm.toLowerCase();
 
       // 1. Search local Firestore database
       const q = query(
@@ -219,7 +217,6 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
 
               console.log(`🔍 Found ${localResults.length} local + ${rxnormResults.length} RxNorm results`);
               setSearchResults(combinedResults);
-              setIsSearching(false);
               return;
             }
           }
@@ -231,16 +228,14 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
 
       // Use just local results (if RxNorm search hasn't happened or failed)
       setSearchResults(localResults);
-      setIsSearching(false);
 
     } catch (error) {
       console.error('Error searching formulary:', error);
       setSearchResults([]);
-      setIsSearching(false);
     }
   };
 
-  const handleNameSearch = (searchTerm: string) => {
+  const handleNameSearch = (searchTerm: string): void => {
     setNameSearch(searchTerm);
 
     // Clear any existing timeout
@@ -251,15 +246,11 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
     // Clear results if search is empty
     if (searchTerm.length === 0) {
       setSearchResults([]);
-      setIsSearching(false);
       return;
     }
 
-    // Set searching state immediately
-    setIsSearching(true);
-
     // Debounce the actual search by 300ms
-    searchTimeoutRef.current = setTimeout(() => {
+    searchTimeoutRef.current = setTimeout((): void => {
       performSearch(searchTerm);
     }, 300);
   };

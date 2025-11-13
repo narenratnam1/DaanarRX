@@ -64,7 +64,6 @@ const Toast: React.FC<ToastProps> = ({
 
   return (
     <YStack
-      // @ts-ignore - Tamagui position fixed type issue
       position="fixed"
       top="$4"
       right="$4"

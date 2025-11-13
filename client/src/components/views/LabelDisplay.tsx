@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { YStack, XStack, Button, Text, H2, Card } from 'tamagui';
-import { Package, MapPin, Calendar, Printer, Home, PlusCircle } from 'lucide-react';
+import { Package, Printer, Home, PlusCircle } from 'lucide-react';
 import { ViewType, Unit } from '../../types';
 import { getButtonProps } from '../../theme/buttonStyles';
 

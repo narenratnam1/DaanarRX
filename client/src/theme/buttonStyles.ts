@@ -1,7 +1,9 @@
 // Standardized button styles for consistent UI across the application
 // Using Tamagui theme tokens for color consistency
 
-export const buttonStyles = {
+import type { ButtonStyles, IconButtonStyles, ButtonVariant, IconButtonVariant } from '../types';
+
+export const buttonStyles: ButtonStyles = {
   // Primary action buttons (main CTAs like submit, save, proceed)
   primary: {
     backgroundColor: "$blue9",
@@ -70,7 +72,7 @@ export const buttonStyles = {
 };
 
 // Icon button styles (circular, compact)
-export const iconButtonStyles = {
+export const iconButtonStyles: IconButtonStyles = {
   primary: {
     size: "$3",
     circular: true,
@@ -104,9 +106,9 @@ export const iconButtonStyles = {
 
 // Helper function to merge button styles with custom props
 export const getButtonProps = (
-  variant: 'primary' | 'secondary' | 'destructive' | 'success' | 'warning' | 'ghost',
+  variant: ButtonVariant,
   customProps: Record<string, any> = {}
-) => {
+): Record<string, any> => {
   const baseStyle = buttonStyles[variant];
   return {
     ...baseStyle,
@@ -119,9 +121,9 @@ export const getButtonProps = (
 
 // Helper function for icon buttons
 export const getIconButtonProps = (
-  variant: 'primary' | 'destructive' | 'warning',
+  variant: IconButtonVariant,
   customProps: Record<string, any> = {}
-) => {
+): Record<string, any> => {
   const baseStyle = iconButtonStyles[variant];
   return {
     ...baseStyle,

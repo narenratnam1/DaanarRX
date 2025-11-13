@@ -1,9 +1,37 @@
 import { Timestamp } from 'firebase/firestore';
 
+/**
+ * Core database entity types
+ */
+
+// Temperature storage type
+export type TempType = 'room' | 'fridge';
+
+// Unit status type
+export type UnitStatus = 'in_stock' | 'partial' | 'dispensed' | 'expired' | 'discarded' | 'quarantined';
+
+// Transaction type
+export type TransactionType = 'check_in' | 'check_out' | 'adjust' | 'move' | 'remove';
+
+// View navigation type
+export type ViewType = 
+  | 'home' 
+  | 'check-in' 
+  | 'check-out' 
+  | 'scan' 
+  | 'inventory' 
+  | 'reports' 
+  | 'admin'
+  | 'label-display';
+
+/**
+ * Database entity interfaces
+ */
+
 export interface Location {
   id: string;
   name: string;
-  temp_type: 'room' | 'fridge';
+  temp_type: TempType;
   is_active: boolean;
   created_at?: Timestamp;
 }
@@ -30,7 +58,7 @@ export interface Unit {
   exp_date: string;
   location_id: string;
   location_name: string;
-  status: 'in_stock' | 'partial' | 'dispensed' | 'expired' | 'discarded' | 'quarantined';
+  status: UnitStatus;
   qr_code_value: string; // JSON string with unit data
   qr_code_image?: string; // Optional: URL or base64 image of QR code
   created_at: Timestamp;
@@ -40,7 +68,7 @@ export interface Unit {
 export interface Transaction {
   id: string;
   daana_id: string;
-  type: 'check_in' | 'check_out' | 'adjust' | 'move';
+  type: TransactionType;
   qty?: number;
   by_user_id: string;
   patient_ref?: string;
@@ -58,6 +86,10 @@ export interface NDCFormulary {
   last_updated: Timestamp;
 }
 
+/**
+ * API and computed types
+ */
+
 export interface NDCLookupResult {
   genericName: string;
   brandName: string;
@@ -71,13 +103,78 @@ export interface StatusStats {
   checkedOutToday: number;
 }
 
-export type ViewType = 
-  | 'home' 
-  | 'check-in' 
-  | 'check-out' 
-  | 'scan' 
-  | 'inventory' 
-  | 'reports' 
-  | 'admin'
-  | 'label-display';
+/**
+ * QR Code data structure
+ */
+export interface QRCodeData {
+  u: string; // daana_id
+  l: string; // lot_id (truncated)
+  g: string; // med_generic
+  s: string; // strength
+  f: string; // form
+  x: string; // exp_date
+  loc: string; // location_name
+}
+
+/**
+ * Search result types
+ */
+export interface SearchResult {
+  id?: string;
+  med_generic: string;
+  med_brand: string;
+  strength: string;
+  form: string;
+  ndc?: string;
+  rxcui?: string;
+  source: 'local' | 'rxnorm';
+}
+
+// Re-export types from other type files
+export type {
+  // API types
+  OpenFDAResult,
+  OpenFDAResponse,
+  RxNormDrug,
+  RxNormSearchResponse,
+  APIResponse,
+  NDCLookupResponse,
+  UnitLookupResponse,
+} from './api.types';
+
+export type {
+  // UI types
+  ButtonVariant,
+  IconButtonVariant,
+  BaseModalProps,
+  ModalProps,
+  ConfirmModalProps,
+  NavigationProps,
+  FormFieldProps,
+  DateInputProps,
+  BarcodeScannerProps,
+  ScanLookupCardProps,
+  SortOrder,
+  SortField,
+  TableColumn,
+  TableProps,
+  StatusType,
+  StatusBadgeProps,
+  LoadingState,
+} from './ui.types';
+
+export type {
+  // Theme types
+  ButtonStyleConfig,
+  IconButtonStyleConfig,
+  DisabledButtonStyle,
+  ButtonStyles,
+  IconButtonStyles,
+  CustomButtonProps,
+  ColorToken,
+  SizeToken,
+  SpaceToken,
+  Breakpoint,
+  ResponsiveProp,
+} from './theme.types';
 
