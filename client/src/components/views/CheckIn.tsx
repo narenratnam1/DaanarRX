@@ -65,13 +65,21 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
     setShowModal(true);
   };
 
-  const handleAddLot = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddLot = async (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) {
+      e.preventDefault();
+    }
+
+    const trimmedSource = lotSource.trim();
+    if (!lotDate || !trimmedSource) {
+      showInfoModal('Validation Error', 'Please fill in the lot date and source/donor.');
+      return;
+    }
     
     try {
       const lotData = {
         date_received: lotDate,
-        source_donor: lotSource,
+        source_donor: trimmedSource,
         notes: lotNotes,
         received_by_user_id: userId,
         created_at: serverTimestamp()
@@ -282,8 +290,31 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
     }, 100);
   };
 
-  const handleAddUnit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddUnit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) {
+      e.preventDefault();
+    }
+
+    if (!selectedLotId) {
+      showInfoModal('Validation Error', 'Please select a lot before adding a unit.');
+      return;
+    }
+
+    const trimmedGeneric = genericName.trim();
+    const trimmedStrength = strength.trim();
+    const trimmedForm = form.trim();
+    const trimmedQty = qty.trim();
+
+    if (!trimmedGeneric || !trimmedStrength || !trimmedForm || !trimmedQty || !expDate || !locationId) {
+      showInfoModal('Validation Error', 'Please complete all required unit fields before submitting.');
+      return;
+    }
+
+    const parsedQty = parseInt(trimmedQty, 10);
+    if (Number.isNaN(parsedQty) || parsedQty <= 0) {
+      showInfoModal('Validation Error', 'Quantity must be a positive number.');
+      return;
+    }
     
     try {
       const locationName = locations.find(l => l.id === locationId)?.name || 'N/A';
@@ -292,12 +323,12 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
       const unitData: any = {
         daana_id: `UNIT-${Date.now()}`,
         lot_id: selectedLotId,
-        med_generic: genericName,
-        med_brand: brandName,
-        strength: strength,
-        form: form,
-        ndc: ndc,
-        qty_total: parseInt(qty, 10),
+        med_generic: trimmedGeneric,
+        med_brand: brandName.trim(),
+        strength: trimmedStrength,
+        form: trimmedForm,
+        ndc: ndc.trim(),
+        qty_total: parsedQty,
         exp_date: expDate,
         location_id: locationId,
         location_name: locationName,
@@ -415,7 +446,8 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
         <H3 fontSize="$7" fontWeight="600" color="$color" borderBottomWidth={1} borderBottomColor="$borderColor" paddingBottom="$2">
           Step 1: Create a New Lot
         </H3>
-        <YStack space="$4" tag="form" onSubmit={(e: any) => { e.preventDefault(); handleAddLot(e); }}>
+        <form onSubmit={handleAddLot} style={{ width: '100%' }}>
+        <YStack space="$4">
           <XStack flexWrap="wrap" gap="$4" $xs={{ flexDirection: "column" }} $sm={{ flexDirection: "column" }}>
             <YStack space="$2" flex={1} minWidth={200} $xs={{ minWidth: "100%" }} $sm={{ minWidth: "100%" }}>
               <Label fontSize="$3" fontWeight="500" color="$color">Date Received</Label>
@@ -423,7 +455,6 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
                 size={4}
                 value={lotDate}
                 onChange={setLotDate}
-                required
               />
             </YStack>
             <YStack space="$2" flex={1} minWidth={200} $xs={{ minWidth: "100%" }} $sm={{ minWidth: "100%" }}>
@@ -435,7 +466,6 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
                 placeholder="e.g., Main Donation"
                 borderColor="$borderColor"
                 focusStyle={{ borderColor: "$blue" }}
-                required
               />
             </YStack>
           </XStack>
@@ -457,11 +487,12 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
             color="white"
             hoverStyle={{ opacity: 0.9 }}
             pressStyle={{ opacity: 0.8 }}
-            onPress={handleAddLot}
+            onPress={() => handleAddLot()}
           >
             Create Lot
           </Button>
         </YStack>
+        </form>
       </Card>
       
       {/* Step 2: Add Unit */}
@@ -614,21 +645,21 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
               <Button
                 unstyled
                 onPress={handleEnterManually}
-                fontSize="$3"
-                color="$color"
-                textDecorationLine="underline"
                 padding="$0"
                 marginTop="$2"
                 hoverStyle={{ opacity: 0.7 }}
                 pressStyle={{ opacity: 0.5 }}
               >
-                Enter Manually Instead
+                <Text fontSize="$3" color="$color" textDecorationLine="underline">
+                  Enter Manually Instead
+                </Text>
               </Button>
             </YStack>
           )}
         </Card>
         
-        <YStack space="$4" tag="form" onSubmit={(e: any) => { e.preventDefault(); handleAddUnit(e); }}>
+        <form onSubmit={handleAddUnit} style={{ width: '100%' }}>
+        <YStack space="$4">
           <YStack space="$2">
             <Label fontSize="$3" fontWeight="500" color="$color">Selected Lot *</Label>
             <Select 
@@ -679,7 +710,6 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
                 backgroundColor={fieldsLocked ? "$backgroundHover" : "$background"}
                 borderColor="$borderColor"
                 focusStyle={{ borderColor: "$blue" }}
-                required
               />
             </YStack>
             <YStack space="$2" flex={1} minWidth={150} $xs={{ minWidth: "100%" }} $sm={{ minWidth: "100%" }}>
@@ -693,7 +723,6 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
                 backgroundColor={fieldsLocked ? "$backgroundHover" : "$background"}
                 borderColor="$borderColor"
                 focusStyle={{ borderColor: "$blue" }}
-                required
               />
             </YStack>
             <YStack space="$2" flex={1} minWidth={150} $xs={{ minWidth: "100%" }} $sm={{ minWidth: "100%" }}>
@@ -707,7 +736,6 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
                 backgroundColor={fieldsLocked ? "$backgroundHover" : "$background"}
                 borderColor="$borderColor"
                 focusStyle={{ borderColor: "$blue" }}
-                required
               />
             </YStack>
           </XStack>
@@ -752,7 +780,6 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
                 keyboardType="numeric"
                 borderColor="$borderColor"
                 focusStyle={{ borderColor: "$blue" }}
-                required
               />
             </YStack>
             <YStack space="$2" flex={1} minWidth={150} $xs={{ minWidth: "100%" }} $sm={{ minWidth: "100%" }}>
@@ -761,7 +788,6 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
                 size={4}
                 value={expDate}
                 onChange={setExpDate}
-                required
               />
             </YStack>
             <YStack space="$2" flex={1} minWidth={150} $xs={{ minWidth: "100%" }} $sm={{ minWidth: "100%" }}>
@@ -814,6 +840,7 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
             Add Unit & Generate DaanaRX Label
           </Button>
         </YStack>
+        </form>
       </Card>
       
       <BarcodeScanner

@@ -215,48 +215,50 @@ const Scan: React.FC<ScanProps> = ({ onNavigate, onCheckOutUnit }) => {
           <Text fontSize="$3" color="$gray">
             Scan the QR code on the DaanaRX label or enter the Daana ID manually.
           </Text>
-          <YStack space="$3" tag="form" onSubmit={(e: any) => { e.preventDefault(); handleScanLookup(e); }}>
-            <XStack space="$2" $xs={{ flexDirection: "column" }}>
-              <Input 
-                flex={1}
-                size="$4"
-                value={scanInput}
-                onChangeText={setScanInput}
-                placeholder="Enter DaanaRX Daana ID (e.g., UNIT-123...)"
-                borderColor="$borderColor"
-                focusStyle={{ borderColor: "$blue" }}
-                $xs={{ width: "100%" }}
-              />
+          <form onSubmit={handleScanLookup} style={{ width: '100%' }}>
+            <YStack space="$3">
+              <XStack space="$2" $xs={{ flexDirection: "column" }}>
+                <Input 
+                  flex={1}
+                  size="$4"
+                  value={scanInput}
+                  onChangeText={setScanInput}
+                  placeholder="Enter DaanaRX Daana ID (e.g., UNIT-123...)"
+                  borderColor="$borderColor"
+                  focusStyle={{ borderColor: "$blue" }}
+                  $xs={{ width: "100%" }}
+                />
+                <Button 
+                  size="$4"
+                  backgroundColor="$blue"
+                  color="white"
+                  hoverStyle={{ opacity: 0.9 }}
+                  pressStyle={{ opacity: 0.8 }}
+                  $xs={{ width: "100%" }}
+                  onPress={() => handleScanLookup()}
+                >
+                  Lookup
+                </Button>
+              </XStack>
+              
+              {/* Camera Scan Button */}
               <Button 
-                size="$4"
-                backgroundColor="$blue"
+                size="$5"
+                backgroundColor="$green"
                 color="white"
+                icon={<Camera size={24} />}
                 hoverStyle={{ opacity: 0.9 }}
                 pressStyle={{ opacity: 0.8 }}
-                $xs={{ width: "100%" }}
-                onPress={handleScanLookup}
+                onPress={() => setShowScanner(true)}
               >
-                Lookup
+                <Text fontWeight="500">Scan QR Code with Camera</Text>
               </Button>
-            </XStack>
-            
-            {/* Camera Scan Button */}
-            <Button 
-              size="$5"
-              backgroundColor="$green"
-              color="white"
-              icon={<Camera size={24} />}
-              hoverStyle={{ opacity: 0.9 }}
-              pressStyle={{ opacity: 0.8 }}
-              onPress={() => setShowScanner(true)}
-            >
-              <Text fontWeight="500">Scan QR Code with Camera</Text>
-            </Button>
-            
-            <Text fontSize="$2" textAlign="center" color="$gray">
-              Works with DaanaRX QR codes and NDC barcodes
-            </Text>
-          </YStack>
+              
+              <Text fontSize="$2" textAlign="center" color="$gray">
+                Works with DaanaRX QR codes and NDC barcodes
+              </Text>
+            </YStack>
+          </form>
         </YStack>
       </Card>
       

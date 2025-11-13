@@ -3,8 +3,8 @@
  * These extend Tamagui's type definitions to support HTML attributes
  */
 
+import * as React from 'react';
 import 'tamagui';
-import { YStackProps, XStackProps, InputProps, ButtonProps } from 'tamagui';
 
 declare module 'tamagui' {
   interface YStackProps {
@@ -71,4 +71,6 @@ declare module 'tamagui' {
     order?: number;
   }
 }
+
+export {};
 

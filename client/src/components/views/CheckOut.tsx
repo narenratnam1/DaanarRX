@@ -250,17 +250,19 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     setShowModal(true);
   };
 
-  const handleCheckOut = async (e: React.FormEvent) => {
+const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
+  if (e) {
     e.preventDefault();
-    
-    // Check for quantity validation errors
-    if (qtyError) {
-      showInfoModal('Validation Error', qtyError);
-      return;
-    }
-    
-    const daanaIdToFind = daanaId.trim();
-    const qtyToDispense = parseInt(qty, 10);
+  }
+
+  // Check for quantity validation errors
+  if (qtyError) {
+    showInfoModal('Validation Error', qtyError);
+    return;
+  }
+  
+  const daanaIdToFind = daanaId.trim();
+  const qtyToDispense = parseInt(qty, 10);
     
     // Find unit
     let unit = units.find(u => u.daana_id === daanaIdToFind);
@@ -522,7 +524,8 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
         marginHorizontal="auto"
         $xs={{ maxWidth: "100%" }}
       >
-        <YStack space="$4" tag="form" onSubmit={(e: any) => { e.preventDefault(); handleCheckOut(e); }}>
+        <form onSubmit={handleCheckOut} style={{ width: '100%' }}>
+        <YStack space="$4">
           <YStack space="$2">
             <Label htmlFor="daanaId" fontSize="$3" fontWeight="500" color="$color">
               Scan DaanaRX Daana ID
@@ -584,9 +587,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
               keyboardType="numeric"
               borderColor={qtyError ? "$red" : "$borderColor"}
               focusStyle={{ borderColor: qtyError ? "$red" : "$blue" }}
-              required
-              min={1}
-              max={availableQty || undefined}
             />
             {qtyError && (
               <Text fontSize="$3" color="$red">{qtyError}</Text>
@@ -625,7 +625,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
           </YStack>
           
           <Button 
-            type="submit"
             size="$5"
             disabled={!!qtyError}
             backgroundColor={qtyError ? "$gray" : "$yellow"}
@@ -634,10 +633,12 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
             pressStyle={{ opacity: qtyError ? 1 : 0.8 }}
             cursor={qtyError ? "not-allowed" : "pointer"}
             opacity={qtyError ? 0.6 : 1}
+            onPress={() => handleCheckOut()}
           >
             Dispense Stock
           </Button>
         </YStack>
+        </form>
       </Card>
       
       <Modal

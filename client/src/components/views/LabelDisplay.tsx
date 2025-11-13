@@ -129,12 +129,12 @@ const LabelDisplay: React.FC<LabelDisplayProps> = ({ onNavigate, unit, locationN
           size="$4"
           icon={<Home size={20} />}
           onPress={() => onNavigate('home')}
-          $xs={{ width: "100%", order: 1 }}
+          $xs={{ width: "100%" }}
           aria-label="Go to home"
         >
           Home
         </Button>
-        <H2 fontSize="$9" fontWeight="600" color="$color" $xs={{ fontSize: "$8", order: 2, width: "100%" }}>
+        <H2 fontSize="$9" fontWeight="600" color="$color" $xs={{ fontSize: "$8", width: "100%", textAlign: "center" }}>
           Label Generated Successfully
         </H2>
         <Button 
@@ -142,7 +142,7 @@ const LabelDisplay: React.FC<LabelDisplayProps> = ({ onNavigate, unit, locationN
           size="$4"
           icon={<PlusCircle size={20} />}
           onPress={() => onNavigate('check-in')}
-          $xs={{ width: "100%", order: 3 }}
+          $xs={{ width: "100%" }}
           aria-label="Check in another unit"
         >
           Check In Another

@@ -26,12 +26,20 @@ const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     setShowModal(true);
   };
 
-  const handleAddLocation = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddLocation = async (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) {
+      e.preventDefault();
+    }
+
+    const trimmedName = locationName.trim();
+    if (!trimmedName) {
+      showInfoModal('Validation Error', 'Location name is required.');
+      return;
+    }
     
     try {
       const locData = {
-        name: locationName,
+        name: trimmedName,
         temp_type: locationTemp,
         is_active: true
       };
@@ -72,7 +80,8 @@ const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
           Manage Locations
         </H3>
         
-        <XStack space="$2" tag="form" onSubmit={(e: any) => { e.preventDefault(); handleAddLocation(e); }} $xs={{ flexDirection: "column" }}>
+        <form onSubmit={handleAddLocation} style={{ width: '100%' }}>
+        <XStack space="$2" $xs={{ flexDirection: "column" }}>
           <Input 
             flex={1}
             size="$4"
@@ -81,7 +90,6 @@ const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
             placeholder="New Location Name (e.g., A-1-1)"
             borderColor="$borderColor"
             focusStyle={{ borderColor: "$blue" }}
-            required
             $xs={{ width: "100%" }}
           />
           <Select 
@@ -127,11 +135,12 @@ const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
             hoverStyle={{ opacity: 0.9 }}
             pressStyle={{ opacity: 0.8 }}
             $xs={{ width: "100%" }}
-            onPress={handleAddLocation}
+            onPress={() => handleAddLocation()}
           >
             Add
           </Button>
         </XStack>
+        </form>
         
         <YStack borderWidth={1} borderColor="$borderColor" borderRadius="$4" overflow="hidden">
           {/* Table Header */}

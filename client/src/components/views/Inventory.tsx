@@ -192,11 +192,11 @@ const Inventory: React.FC<InventoryProps> = ({ onNavigate, onCheckOutUnit }) => 
           hoverStyle={{ backgroundColor: "#4b5563" }}
           pressStyle={{ backgroundColor: "#374151" }}
           icon={<Text>←</Text>}
-          $xs={{ width: "100%", order: 1 }}
+          $xs={{ width: "100%" }}
         >
           Back to Home
         </Button>
-        <H2 fontSize="$9" fontWeight="600" color="$color" $xs={{ fontSize: "$8", order: 2, width: "100%", textAlign: "center" }}>
+        <H2 fontSize="$9" fontWeight="600" color="$color" $xs={{ fontSize: "$8", width: "100%", textAlign: "center" }}>
           Full Inventory
         </H2>
         <Button 
@@ -206,7 +206,7 @@ const Inventory: React.FC<InventoryProps> = ({ onNavigate, onCheckOutUnit }) => 
           size="$4"
           hoverStyle={{ backgroundColor: "#4b5563" }}
           pressStyle={{ backgroundColor: "#374151" }}
-          $xs={{ width: "100%", order: 3 }}
+          $xs={{ width: "100%" }}
         >
           Export CSV
         </Button>
