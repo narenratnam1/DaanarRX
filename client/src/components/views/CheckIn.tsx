@@ -835,7 +835,7 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
             color="white"
             hoverStyle={{ opacity: 0.9 }}
             pressStyle={{ opacity: 0.8 }}
-            onPress={handleAddUnit}
+            onPress={() => handleAddUnit()}
           >
             Add Unit & Generate DaanaRX Label
           </Button>
