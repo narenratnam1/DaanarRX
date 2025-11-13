@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { YStack, XStack, Button, Input, TextArea, Text, H2, H3, Card, Label, Select, Adapt, Sheet } from 'tamagui';
 import { Camera, Check, ChevronDown } from 'lucide-react';
 import { ViewType, Unit } from '../../types';
@@ -9,6 +9,8 @@ import PrintLabelModal from '../shared/PrintLabelModal';
 import Modal from '../shared/Modal';
 import BarcodeScanner from '../shared/BarcodeScanner';
 import DateInput from '../shared/DateInput';
+import QRCode from 'qrcode';
+import { useToast } from '../../context/ToastContext';
 
 interface CheckInProps {
   onNavigate: (view: ViewType) => void;
@@ -17,6 +19,7 @@ interface CheckInProps {
 
 const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
   const { locations, lots, userId } = useFirebase();
+  const toast = useToast();
   
   // Lot form state
   const [lotDate, setLotDate] = useState('');
@@ -30,6 +33,8 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
   const [showFallback, setShowFallback] = useState(false);
   const [nameSearch, setNameSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [fieldsLocked, setFieldsLocked] = useState(true);
   
   const [genericName, setGenericName] = useState('');
@@ -74,6 +79,7 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
       };
       
       const docRef = await addDoc(collection(db, 'lots'), lotData);
+      toast.success('Lot created successfully!', 3000);
       showInfoModal('Success', `Lot created successfully.`);
       setSelectedLotId(docRef.id);
       setLotDate(new Date().toISOString().split('T')[0]);
@@ -154,38 +160,113 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
     setNdc('');
   };
 
-  const handleNameSearch = async (searchTerm: string) => {
-    setNameSearch(searchTerm);
-    
-    if (searchTerm.length < 3) {
-      setSearchResults([]);
-      return;
-    }
-    
+  const performSearch = async (searchTerm: string) => {
+    // Search both local Firestore and FDA database
     try {
-      // Search Firestore directly
+      setIsSearching(true);
       const searchTermLower = searchTerm.toLowerCase();
+
+      // 1. Search local Firestore database
       const q = query(
         collection(db, 'ndc_formulary'),
         where('med_generic', '>=', searchTermLower),
         where('med_generic', '<=', searchTermLower + '\uf8ff')
       );
-      
+
       const querySnapshot = await getDocs(q);
-      const results: any[] = [];
+      const localResults: any[] = [];
       querySnapshot.forEach((doc) => {
-        results.push({ id: doc.id, ...doc.data() });
+        localResults.push({
+          id: doc.id,
+          ...doc.data(),
+          source: 'local'
+        });
       });
-      
-      setSearchResults(results);
+
+      // 2. Search RxNorm database via backend API (only if 2+ characters)
+      if (searchTerm.length >= 2) {
+        try {
+          const rxnormResponse = await fetch(
+            `http://localhost:4000/api/search/generic/${encodeURIComponent(searchTerm)}?limit=20`
+          );
+
+          if (rxnormResponse.ok) {
+            const rxnormData = await rxnormResponse.json();
+
+            if (rxnormData.success && rxnormData.data) {
+              // Map RxNorm results to match our format
+              const rxnormResults = rxnormData.data.map((drug: any) => ({
+                med_generic: drug.genericName,
+                med_brand: drug.brandName,
+                strength: drug.strength,
+                form: drug.form,
+                ndc: drug.ndc,
+                rxcui: drug.rxcui,
+                source: 'rxnorm'
+              }));
+
+              // Combine local and RxNorm results, removing duplicates by generic name
+              const combinedResults = [...localResults];
+              const existingNames = new Set(localResults.map(r => r.med_generic?.toLowerCase()));
+
+              rxnormResults.forEach((rxnormResult: any) => {
+                const genericNameLower = rxnormResult.med_generic?.toLowerCase();
+                if (!existingNames.has(genericNameLower)) {
+                  combinedResults.push(rxnormResult);
+                  existingNames.add(genericNameLower);
+                }
+              });
+
+              console.log(`🔍 Found ${localResults.length} local + ${rxnormResults.length} RxNorm results`);
+              setSearchResults(combinedResults);
+              setIsSearching(false);
+              return;
+            }
+          }
+        } catch (rxnormError) {
+          console.error('Error searching RxNorm database:', rxnormError);
+          // Continue with just local results
+        }
+      }
+
+      // Use just local results (if RxNorm search hasn't happened or failed)
+      setSearchResults(localResults);
+      setIsSearching(false);
+
     } catch (error) {
       console.error('Error searching formulary:', error);
       setSearchResults([]);
+      setIsSearching(false);
     }
   };
 
+  const handleNameSearch = (searchTerm: string) => {
+    setNameSearch(searchTerm);
+
+    // Clear any existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Clear results if search is empty
+    if (searchTerm.length === 0) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    // Set searching state immediately
+    setIsSearching(true);
+
+    // Debounce the actual search by 300ms
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(searchTerm);
+    }, 300);
+  };
+
   const handleChipClick = (drug: any) => {
-    autoFillForm(drug, drug.ndc, 'Local DB');
+    const source = drug.source === 'rxnorm' ? 'RxNorm (NIH/NLM)' : 'Local DB';
+    autoFillForm(drug, drug.ndc, source);
     setShowFallback(false);
   };
 
@@ -248,10 +329,23 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
       
       // Store the JSON data in qr_code_value (for scanning)
       unitData.qr_code_value = qrData;
-      
-      // Generate QR code image URL (for display)
-      unitData.qr_code_image = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
-      
+
+      // Generate QR code image locally as base64 data URL
+      try {
+        unitData.qr_code_image = await QRCode.toDataURL(qrData, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+      } catch (qrError) {
+        console.error('Error generating QR code:', qrError);
+        // Fallback to a simple placeholder if QR generation fails
+        unitData.qr_code_image = '';
+      }
+
       const batch = writeBatch(db);
       
       const unitRef = doc(collection(db, 'units'));
@@ -281,10 +375,12 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
       }
       
       await batch.commit();
-      
+
       const createdUnitData = { ...unitData, id: unitRef.id } as Unit;
       setCreatedUnit(createdUnitData);
-      
+
+      toast.success('Unit added successfully! Label generated.', 3000);
+
       // Navigate to label display screen
       onShowLabel(createdUnitData);
       
@@ -429,38 +525,102 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
           {showFallback && (
             <YStack space="$3" marginTop="$4" paddingTop="$4" borderTopWidth={1} borderTopColor="#bfdbfe">
               <Label fontSize="$3" fontWeight="500" color="$color">
-                Or, search your local formulary by generic name:
+                Or, search by generic/brand name (Local DB + FDA):
               </Label>
-              <Input 
-                size="$4"
-                value={nameSearch}
-                onChangeText={handleNameSearch}
-                placeholder="e.g., Fluoxetine"
-                borderColor="$borderColor"
-                focusStyle={{ borderColor: "$blue" }}
-              />
-              <XStack flexWrap="wrap" gap="$2">
-                {searchResults.map((drug, idx) => (
-                  <Button
-                    key={idx}
-                    size="$3"
-                    onPress={() => handleChipClick(drug)}
-                    backgroundColor="$blue"
-                    color="white"
-                    borderRadius="$10"
-                    paddingHorizontal="$3"
-                    paddingVertical="$2"
-                    hoverStyle={{ opacity: 0.9 }}
-                    pressStyle={{ opacity: 0.8 }}
+              <YStack position="relative">
+                <Input
+                  size="$4"
+                  value={nameSearch}
+                  onChangeText={handleNameSearch}
+                  placeholder="Type to search... (e.g., ibuprofen)"
+                  borderColor="$borderColor"
+                  focusStyle={{ borderColor: "$blue" }}
+                />
+
+                {/* Dropdown Results */}
+                {nameSearch.length > 0 && searchResults.length > 0 && (
+                  <YStack
+                    position="absolute"
+                    top="$10"
+                    left={0}
+                    right={0}
+                    backgroundColor="$background"
+                    borderWidth={1}
+                    borderColor="$borderColor"
+                    borderRadius="$2"
+                    shadowColor="$shadowColor"
+                    shadowRadius={8}
+                    shadowOpacity={0.2}
+                    maxHeight={400}
+                    overflow="scroll"
+                    zIndex={1000}
                   >
-                    {drug.med_generic} {drug.strength} {drug.form}
-                  </Button>
-                ))}
-                {searchResults.length === 0 && nameSearch.length >= 3 && (
-                  <Text fontSize="$3" color="$gray">No local matches.</Text>
+                    {searchResults.map((drug, idx) => (
+                      <Button
+                        key={idx}
+                        unstyled
+                        padding="$3"
+                        borderBottomWidth={idx < searchResults.length - 1 ? 1 : 0}
+                        borderBottomColor="$borderColor"
+                        hoverStyle={{ backgroundColor: "$backgroundHover" }}
+                        pressStyle={{ backgroundColor: "$backgroundPress" }}
+                        onPress={() => {
+                          handleChipClick(drug);
+                          setNameSearch('');
+                        }}
+                        alignItems="flex-start"
+                        justifyContent="flex-start"
+                      >
+                        <YStack space="$1" width="100%">
+                          <XStack space="$2" alignItems="center">
+                            {drug.source === 'rxnorm' ? (
+                              <Text fontSize="$2" color="$green10" fontWeight="600">🏥 RxNorm</Text>
+                            ) : (
+                              <Text fontSize="$2" color="$blue10" fontWeight="600">📦 Local</Text>
+                            )}
+                            <Text fontSize="$4" fontWeight="600" color="$color" flex={1}>
+                              {drug.med_generic}
+                            </Text>
+                          </XStack>
+                          <Text fontSize="$3" color="$gray">
+                            {drug.med_brand} • {drug.strength} • {drug.form}
+                          </Text>
+                          {drug.ndc && drug.ndc !== 'N/A' && (
+                            <Text fontSize="$2" color="$gray" fontFamily="$mono">
+                              NDC: {drug.ndc}
+                            </Text>
+                          )}
+                        </YStack>
+                      </Button>
+                    ))}
+                  </YStack>
                 )}
-              </XStack>
-              <Button 
+
+                {/* No results message */}
+                {nameSearch.length >= 3 && searchResults.length === 0 && (
+                  <YStack
+                    position="absolute"
+                    top="$10"
+                    left={0}
+                    right={0}
+                    backgroundColor="$background"
+                    borderWidth={1}
+                    borderColor="$borderColor"
+                    borderRadius="$2"
+                    padding="$4"
+                    shadowColor="$shadowColor"
+                    shadowRadius={8}
+                    shadowOpacity={0.2}
+                    zIndex={1000}
+                  >
+                    <Text fontSize="$3" color="$gray" textAlign="center">
+                      No matches found. Try searching by NDC or enter manually.
+                    </Text>
+                  </YStack>
+                )}
+              </YStack>
+
+              <Button
                 unstyled
                 onPress={handleEnterManually}
                 fontSize="$3"

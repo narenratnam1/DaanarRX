@@ -1,9 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from server directory
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -102,25 +103,122 @@ app.get('/api/ndc/:ndc', async (req, res) => {
   }
 });
 
+// RxNorm API configuration (National Library of Medicine - Free API)
+const RXNORM_API_BASE = 'https://rxnav.nlm.nih.gov/REST';
+
+// Generic Drug Name Search endpoint (uses RxNorm API)
+app.get('/api/search/generic/:name', async (req, res) => {
+  const { name } = req.params;
+  const limit = parseInt(req.query.limit) || 25;
+  const axios = require('axios');
+
+  console.log(`🔍 Generic drug name search: ${name}`);
+
+  if (!name || name.length < 1) {
+    return res.status(400).json({
+      success: false,
+      message: 'Search term is required'
+    });
+  }
+
+  try {
+    const searchTerm = name.trim();
+
+    // Call RxNorm API for approximate term matching (fuzzy search)
+    const approximateUrl = `${RXNORM_API_BASE}/approximateTerm.json`;
+    const response = await axios.get(approximateUrl, {
+      params: {
+        term: searchTerm,
+        maxEntries: limit,
+        option: 1 // Return only terms from valid RxNorm concepts
+      },
+      timeout: 5000
+    });
+
+    const candidates = response.data?.approximateGroup?.candidate || [];
+
+    // For each candidate, get detailed drug information
+    const detailedResults = await Promise.all(
+      candidates.slice(0, limit).map(async (candidate) => {
+        try {
+          const rxcui = candidate.rxcui;
+          const score = candidate.score;
+
+          // Get RxNorm concept properties for detailed info
+          const propsUrl = `${RXNORM_API_BASE}/rxcui/${rxcui}/properties.json`;
+          const propsResponse = await axios.get(propsUrl, { timeout: 3000 });
+
+          const properties = propsResponse.data?.properties;
+
+          return {
+            genericName: properties?.name || candidate.term || 'N/A',
+            brandName: properties?.synonym || properties?.name || 'N/A',
+            form: properties?.tty || 'N/A', // Term Type (e.g., SCD, SBD, GPCK)
+            strength: properties?.suppress || 'N/A',
+            ndc: 'N/A', // RxNorm doesn't directly provide NDC, would need additional lookup
+            rxcui: rxcui,
+            score: score,
+            source: 'rxnorm'
+          };
+        } catch (detailError) {
+          console.error(`Error fetching details for RXCUI ${candidate.rxcui}:`, detailError.message);
+          // Return basic info if detailed fetch fails
+          return {
+            genericName: candidate.term || 'N/A',
+            brandName: candidate.term || 'N/A',
+            form: 'N/A',
+            strength: 'N/A',
+            ndc: 'N/A',
+            rxcui: candidate.rxcui,
+            score: candidate.score,
+            source: 'rxnorm'
+          };
+        }
+      })
+    );
+
+    console.log(`✅ Found ${detailedResults.length} matches from RxNorm`);
+
+    return res.json({
+      success: true,
+      data: detailedResults,
+      count: detailedResults.length,
+      source: 'rxnorm'
+    });
+
+  } catch (error) {
+    console.error('❌ Error searching RxNorm:', error.message);
+
+    // Return empty results instead of error to allow graceful degradation
+    return res.json({
+      success: true,
+      data: [],
+      count: 0,
+      message: `RxNorm search error: ${error.message}`,
+      source: 'rxnorm'
+    });
+  }
+});
+
 // Unit ID Lookup endpoint (returns unit information for preview)
 app.get('/api/unit/:daanaId', async (req, res) => {
   const { daanaId } = req.params;
-  
+
   console.log(`🔍 Daana ID Lookup request: ${daanaId}`);
-  
+
   try {
     // Note: This endpoint is optional since the frontend can query Firebase directly
     // However, it's provided for consistency and potential future backend processing
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Unit lookup should be handled by frontend Firebase query',
       daanaId: daanaId
     });
   } catch (error) {
     console.error('❌ Error in unit lookup:', error.message);
-    res.status(500).json({ 
-      success: false, 
-      message: `Error looking up unit: ${error.message}` 
+    res.status(500).json({
+      success: false,
+      message: `Error looking up unit: ${error.message}`
     });
   }
 });

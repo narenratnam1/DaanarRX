@@ -9,6 +9,7 @@ import Modal from '../shared/Modal';
 import ConfirmModal from '../shared/ConfirmModal';
 import BarcodeScanner from '../shared/BarcodeScanner';
 import UnitPreviewModal from '../shared/UnitPreviewModal';
+import { useToast } from '../../context/ToastContext';
 
 interface CheckOutProps {
   onNavigate: (view: ViewType) => void;
@@ -17,6 +18,7 @@ interface CheckOutProps {
 
 const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => {
   const { units, userId, locations } = useFirebase();
+  const toast = useToast();
   
   const [daanaId, setDaanaId] = useState('');
   const [qty, setQty] = useState('');
@@ -293,17 +295,39 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       return;
     }
     
-    // FEFO Check
-    let olderUnit;
+    // FEFO Check - Query Firestore directly for accuracy
+    let olderUnit: Unit | undefined;
     if (unit) {
-      const currentUnit = unit; // Create a const reference for TypeScript
-      olderUnit = units.find(u => 
-        u.id !== docId &&
-        u.med_generic === currentUnit.med_generic &&
-        u.strength === currentUnit.strength &&
-        (u.status === 'in_stock' || u.status === 'partial') &&
-        u.exp_date < currentUnit.exp_date
-      );
+      const currentUnit = unit; // Store in const to satisfy TypeScript
+      try {
+        const fefoQuery = query(
+          collection(db, 'units'),
+          where('med_generic', '==', currentUnit.med_generic),
+          where('strength', '==', currentUnit.strength),
+          where('status', 'in', ['in_stock', 'partial'])
+        );
+        const fefoSnapshot = await getDocs(fefoQuery);
+
+        // Find units with earlier expiration dates
+        fefoSnapshot.forEach((doc) => {
+          const potentialUnit = { id: doc.id, ...doc.data() } as Unit;
+          if (potentialUnit.id !== docId && potentialUnit.exp_date < currentUnit.exp_date) {
+            if (!olderUnit || potentialUnit.exp_date < olderUnit.exp_date) {
+              olderUnit = potentialUnit;
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error checking FEFO:', error);
+        // Fall back to context-based check if Firestore query fails
+        olderUnit = units.find(u =>
+          u.id !== docId &&
+          u.med_generic === currentUnit.med_generic &&
+          u.strength === currentUnit.strength &&
+          (u.status === 'in_stock' || u.status === 'partial') &&
+          u.exp_date < currentUnit.exp_date
+        );
+      }
     }
     
     const proceedWithCheckout = async () => {
@@ -337,11 +361,12 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
         });
         
         await batch.commit();
-        
-        const successMessage = newQty === 0 
-          ? `Dispensed all ${qtyToDispense} units from ${unit!.daana_id}. Unit removed from inventory.`
-          : `Dispensed ${qtyToDispense} from ${unit!.daana_id}. New quantity: ${newQty}.`;
-        
+
+        const successMessage = newQty === 0
+          ? `Dispensed all ${qtyToDispense} units. Unit removed from inventory.`
+          : `Dispensed ${qtyToDispense} units. ${newQty} remaining.`;
+
+        toast.success(successMessage, 4000);
         showInfoModal('Success', successMessage);
         
         // Reset form completely including daanaId input

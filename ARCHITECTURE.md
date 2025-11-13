@@ -28,7 +28,7 @@
                       ↕                           ↕
          ┌────────────────────────┐    ┌──────────────────────┐
          │  Node.js Backend       │    │  Firebase Services   │
-         │  (localhost:5000)      │    │                      │
+         │  (localhost:4000)      │    │                      │
          │  ┌──────────────────┐  │    │  ┌────────────────┐ │
          │  │  Express Routes  │  │    │  │  Firestore DB  │ │
          │  │  - /api/health   │  │    │  │  Collections:  │ │
@@ -323,7 +323,7 @@ service cloud.firestore {
 ```
 localhost:3000 (React Dev Server)
       ↓
-localhost:5000 (Express Server)
+localhost:4000 (Express Server)
       ↓
 Firebase (Cloud)
 ```

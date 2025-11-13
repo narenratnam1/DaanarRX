@@ -8,7 +8,7 @@ A modern web application for managing pharmaceutical inventory with features for
 - 🔍 **Scan & Lookup**: Quick unit lookup with QR code support
 - 📊 **Inventory Management**: Real-time inventory tracking with status monitoring
 - 📈 **Reports**: Transaction logs with date filtering and CSV export
-- 🏥 **NDC Integration**: Automatic drug information lookup via openFDA API
+- 🏥 **RxNorm Integration**: Automatic drug information lookup via RxNorm API (NIH/NLM) with fuzzy search and autocomplete
 - 🏷️ **Label Generation**: Printable QR code labels for units
 - ⚠️ **Quarantine**: Flag units for review
 - 🌡️ **Location Management**: Track storage locations (room temp/fridge)
@@ -93,8 +93,11 @@ cp .env.example .env
 Edit `.env` and add your Firebase configuration:
 
 ```env
-PORT=5000
+PORT=4000
 NODE_ENV=development
+
+# Note: RxNorm API from NIH/NLM is free and requires no API key
+# https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html
 
 # Firebase Admin SDK - path to your service account key
 FIREBASE_ADMIN_SDK_PATH=./server/firebase-adminsdk.json
@@ -139,7 +142,7 @@ npm run dev
 ```
 
 This will start:
-- Backend server on `http://localhost:5000`
+- Backend server on `http://localhost:4000`
 - React dev server on `http://localhost:3000`
 
 #### Option 2: Run Servers Separately
@@ -208,16 +211,15 @@ service cloud.firestore {
 The backend provides the following endpoints:
 
 - `GET /api/health` - Health check
-- `GET /api/ndc/:ndc` - Lookup NDC via openFDA
-- `GET /api/locations` - Get all locations
-- `POST /api/locations` - Create a location
-- `GET /api/lots` - Get all lots
-- `POST /api/lots` - Create a lot
-- `GET /api/units` - Get all units
-- `GET /api/units/:unitId` - Get specific unit
-- `GET /api/transactions` - Get all transactions
-- `GET /api/ndc-formulary/:ndc` - Get NDC from local formulary
-- `GET /api/ndc-formulary/search/:name` - Search formulary by name
+- `GET /api/ndc/:ndc` - Lookup NDC code with fuzzy matching (supports multiple NDC formats)
+- `GET /api/search/generic/:name` - Search drugs by generic name via RxNorm API (NIH/NLM)
+- `GET /api/unit/:daanaId` - Lookup unit by Daana ID
+
+**RxNorm API Features:**
+- Free API from National Library of Medicine (no API key required)
+- Fuzzy search with approximate term matching
+- Comprehensive drug database with RXCUI identifiers
+- Auto-complete support for drug name search
 
 ## Usage Guide
 
@@ -252,7 +254,7 @@ The system automatically checks for older units when checking out and warns if a
 ### Backend Won't Start
 
 - Verify `firebase-adminsdk.json` is in the `server` directory
-- Check that PORT 5000 is not in use
+- Check that PORT 4000 is not in use (or change PORT in `.env`)
 - Run `npm install` in the root directory
 
 ### Frontend Build Errors
@@ -261,11 +263,13 @@ The system automatically checks for older units when checking out and warns if a
 - Run `npm install` again in `client/`
 - Ensure all environment variables start with `REACT_APP_`
 
-### NDC Lookup Fails
+### Drug Search Not Working
 
-- Check your internet connection (openFDA API requires internet)
-- Verify the NDC format (e.g., "0071-0570-23")
-- Some NDCs may not be in the openFDA database
+- Check your internet connection (RxNorm API requires internet)
+- Ensure the backend server is running on port 4000
+- Check browser console for CORS or network errors
+- Verify RxNorm API is accessible: https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=aspirin
+- If RxNorm is down, only local Firestore search will work
 
 ## Development
 
@@ -310,8 +314,9 @@ For issues, questions, or contributions, please open an issue on the GitHub repo
 
 ## Acknowledgments
 
-- OpenFDA for drug information API
-- Firebase for backend infrastructure
-- Tailwind CSS for styling framework
-- Lucide React for beautiful icons
+- [RxNorm API](https://lhncbc.nlm.nih.gov/RxNav/) by National Library of Medicine (NIH) for comprehensive, free pharmaceutical database
+- [Firebase](https://firebase.google.com/) for backend infrastructure and real-time database
+- [Tamagui](https://tamagui.dev/) for cross-platform UI components
+- [Lucide React](https://lucide.dev/) for beautiful icons
+- [QRCode.js](https://github.com/soldair/node-qrcode) for QR code generation
 

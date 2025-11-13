@@ -5,7 +5,7 @@
 ### Development
 ```bash
 npm run dev           # Start both servers
-npm run server        # Backend only (port 5000)
+npm run server        # Backend only (port 4000)
 npm run client        # Frontend only (port 3000)
 npm run install-all   # Install all dependencies
 ```
@@ -19,8 +19,8 @@ npm start            # Start production server
 ## URLs
 
 - **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:5000/api
-- **Health Check**: http://localhost:5000/api/health
+- **Backend API**: http://localhost:4000/api
+- **Health Check**: http://localhost:4000/api/health
 
 ## Keyboard Shortcuts
 
@@ -126,11 +126,11 @@ Body: { "name": "A-1", "temp_type": "room" }
 ### App Won't Start
 ```bash
 # Check if ports are free
-lsof -ti:5000  # Backend
+lsof -ti:4000  # Backend
 lsof -ti:3000  # Frontend
 
 # Kill processes
-kill -9 $(lsof -ti:5000)
+kill -9 $(lsof -ti:4000)
 kill -9 $(lsof -ti:3000)
 ```
 

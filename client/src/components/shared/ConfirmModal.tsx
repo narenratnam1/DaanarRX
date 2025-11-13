@@ -35,13 +35,14 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay 
+        <Dialog.Overlay
           key="overlay"
           animation="quick"
           opacity={0.5}
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="rgba(0,0,0,0.4)"
+          // @ts-ignore - Tamagui position fixed type issue
           position="fixed"
           inset={0}
           zIndex={50}

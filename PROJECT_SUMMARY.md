@@ -7,7 +7,7 @@ Successfully converted the HTML-based pharmaceutical inventory management system
 
 ### 1. Project Structure
 Created a full-stack application with:
-- **Backend**: Node.js/Express server (port 5000)
+- **Backend**: Node.js/Express server (port 4000)
 - **Frontend**: React 18 with TypeScript (port 3000)
 - **Database**: Firebase Firestore
 - **Authentication**: Firebase Anonymous Auth

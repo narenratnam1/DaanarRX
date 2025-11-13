@@ -143,13 +143,13 @@ npm run install-all
 - Verify the file is valid JSON
 - Make sure you downloaded the correct service account key
 
-### Port 5000 already in use
+### Port 4000 already in use
 ```bash
-# Kill whatever's using port 5000
-lsof -ti:5000 | xargs kill -9
+# Kill whatever's using port 4000
+lsof -ti:4000 | xargs kill -9
 
 # Or change the port in .env
-PORT=5001
+PORT=4001
 ```
 
 ### React app won't load
@@ -159,7 +159,7 @@ npm run dev
 
 # Check the terminal for errors
 # Frontend runs on http://localhost:3000
-# Backend runs on http://localhost:5000
+# Backend runs on http://localhost:4000
 ```
 
 ## Next Steps
