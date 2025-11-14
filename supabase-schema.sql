@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS units (
 CREATE TABLE IF NOT EXISTS transactions (
   transaction_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   timestamp TIMESTAMPTZ DEFAULT NOW(),
-  type VARCHAR(50) NOT NULL CHECK (type IN ('adjust', 'check out', 'check in')),
+  type VARCHAR(50) NOT NULL CHECK (type IN ('adjust', 'check_out', 'check_in')),
   quantity INTEGER NOT NULL,
   unit_id UUID NOT NULL REFERENCES units(unit_id) ON DELETE RESTRICT,
   patient_reference_id VARCHAR(255),
