@@ -62,7 +62,7 @@ const Scan: React.FC<ScanProps> = ({ onNavigate, onCheckOutUnit }) => {
         querySnapshot = await getDocs(q);
       }
       
-      if (querySnapshot.empty) {
+      if (querySnapshot.empty || !querySnapshot.docs[0]) {
         setFoundUnit(null);
         setNotFound(true);
         setErrorMsg(`Daana ID "${unitIdToFind}" not found.`);
@@ -143,7 +143,7 @@ const Scan: React.FC<ScanProps> = ({ onNavigate, onCheckOutUnit }) => {
     const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
     const querySnapshot = await getDocs(q);
     
-    if (!querySnapshot.empty) {
+    if (!querySnapshot.empty && querySnapshot.docs[0]) {
       const foundDoc = querySnapshot.docs[0];
       unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
     } else {
@@ -151,7 +151,7 @@ const Scan: React.FC<ScanProps> = ({ onNavigate, onCheckOutUnit }) => {
       const qrQuery = query(collection(db, 'units'), where('qr_code_value', '==', barcode));
       const qrSnapshot = await getDocs(qrQuery);
       
-      if (!qrSnapshot.empty) {
+      if (!qrSnapshot.empty && qrSnapshot.docs[0]) {
         const foundDoc = qrSnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }

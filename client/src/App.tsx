@@ -11,7 +11,7 @@ import CheckOut from './components/views/CheckOut';
 import Scan from './components/views/Scan';
 import Inventory from './components/views/Inventory';
 import Reports from './components/views/Reports';
-import Admin from './components/views/Admin';
+import Admin from './components/views/AdminEnhanced';
 import LabelDisplay from './components/views/LabelDisplay';
 import { Unit } from './types';
 

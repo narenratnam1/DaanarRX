@@ -51,7 +51,7 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
 
   useEffect(() => {
     // Set today's date as default
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0] || '';
     setLotDate(today);
   }, []);
 
@@ -74,7 +74,7 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
       const docRef = await addDoc(collection(db, 'lots'), lotData);
       showInfoModal('Success', `Lot created successfully.`);
       setSelectedLotId(docRef.id);
-      setLotDate(new Date().toISOString().split('T')[0]);
+      setLotDate(new Date().toISOString().split('T')[0] || '');
       setLotSource('');
       setLotNotes('');
     } catch (error: any) {
@@ -111,7 +111,7 @@ const CheckIn: React.FC<CheckInProps> = ({ onNavigate, onShowLabel }) => {
       
       // Check openFDA
       setNdcLookupStatus('🌐 Searching openFDA (trying multiple formats)...');
-      const apiUrl = process.env.REACT_APP_API_URL || '/api';
+      const apiUrl = process.env['REACT_APP_API_URL'] || '/api';
       const fdaResponse = await fetch(`${apiUrl}/ndc/${ndcValue}`);
       
       if (fdaResponse.ok) {

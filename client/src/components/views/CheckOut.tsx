@@ -22,7 +22,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
   const [qty, setQty] = useState('');
   const [patientRef, setPatientRef] = useState('');
   const [reason, setReason] = useState('');
-  const [unitDisplayName, setUnitDisplayName] = useState('');
   
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
@@ -59,7 +58,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     setQty('');
     setPatientRef('');
     setReason('');
-    setUnitDisplayName('');
     setAvailableQty(null);
     setQtyError('');
     setConfirmedUnit(null);
@@ -95,7 +93,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
       const querySnapshot = await getDocs(q);
       
-      if (!querySnapshot.empty) {
+      if (!querySnapshot.empty && querySnapshot.docs[0]) {
         const foundDoc = querySnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
@@ -109,7 +107,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       setPreviewLocationName(locationName);
       setShowPreviewModal(true);
     } else {
-      setUnitDisplayName('');
       setAvailableQty(null);
       showInfoModal('Error', 'Daana ID not found.');
     }
@@ -162,7 +159,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
       const querySnapshot = await getDocs(q);
       
-      if (!querySnapshot.empty) {
+      if (!querySnapshot.empty && querySnapshot.docs[0]) {
         const foundDoc = querySnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
@@ -190,7 +187,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     if (previewUnit) {
       setDaanaId(previewUnit.daana_id);
       setAvailableQty(previewUnit.qty_total);
-      setUnitDisplayName(''); // Don't persist display name
       setConfirmedUnit(previewUnit); // Store confirmed unit for display
       setConfirmedLocationName(previewLocationName);
     }
@@ -223,7 +219,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
       const querySnapshot = await getDocs(q);
       
-      if (!querySnapshot.empty) {
+      if (!querySnapshot.empty && querySnapshot.docs[0]) {
         const foundDoc = querySnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
@@ -265,7 +261,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       const q = query(collection(db, 'units'), where('daana_id', '==', daanaIdToFind));
       const querySnapshot = await getDocs(q);
       
-      if (querySnapshot.empty) {
+      if (querySnapshot.empty || !querySnapshot.docs[0]) {
         showInfoModal('Error', 'Daana ID not found.');
         return;
       }
@@ -507,7 +503,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
                 value={daanaId}
                 onChangeText={(value: string) => {
                   setDaanaId(value);
-                  setUnitDisplayName('');
                 }}
                 placeholder="Scan internal DaanaRX QR" 
                 borderColor="$borderColor"
@@ -557,8 +552,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
               keyboardType="numeric"
               borderColor={qtyError ? "$red" : "$borderColor"}
               focusStyle={{ borderColor: qtyError ? "$red" : "$blue" }}
-              min={1}
-              max={availableQty || undefined}
             />
             {qtyError && (
               <Text fontSize="$3" color="$red">{qtyError}</Text>
