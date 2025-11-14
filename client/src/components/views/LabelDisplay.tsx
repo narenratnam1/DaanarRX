@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { YStack, XStack, Button, Text, H2, Card } from 'tamagui';
-import { Package, Printer, Home, PlusCircle } from 'lucide-react';
+import { Package, MapPin, Calendar, Printer, Home, PlusCircle } from 'lucide-react';
 import { ViewType, Unit } from '../../types';
 import { getButtonProps } from '../../theme/buttonStyles';
 
@@ -134,7 +134,7 @@ const LabelDisplay: React.FC<LabelDisplayProps> = ({ onNavigate, unit, locationN
         >
           Home
         </Button>
-        <H2 fontSize="$9" fontWeight="600" color="$color" $xs={{ fontSize: "$8", width: "100%", textAlign: "center" }}>
+        <H2 fontSize="$9" fontWeight="600" color="$color" $xs={{ fontSize: "$8", width: "100%" }}>
           Label Generated Successfully
         </H2>
         <Button 

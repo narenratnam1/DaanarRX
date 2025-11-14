@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { TamaguiProvider, View, YStack, Spinner, Text } from 'tamagui';
 import tamaguiConfig from './tamagui.config';
 import { FirebaseProvider, useFirebase } from './context/FirebaseContext';
-import { ToastProvider } from './context/ToastContext';
 import { ViewType, StatusStats } from './types';
 import Header from './components/shared/Header';
 import StatusBar from './components/shared/StatusBar';
@@ -112,9 +111,7 @@ const App: React.FC = () => {
   return (
     <TamaguiProvider config={tamaguiConfig as any}>
       <FirebaseProvider>
-        <ToastProvider>
-          <AppContent />
-        </ToastProvider>
+        <AppContent />
       </FirebaseProvider>
     </TamaguiProvider>
   );

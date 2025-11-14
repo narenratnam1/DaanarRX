@@ -7,7 +7,6 @@ import { doc, writeBatch, serverTimestamp, collection } from 'firebase/firestore
 import { db } from '../../firebase/config';
 import ConfirmModal from '../shared/ConfirmModal';
 import Modal from '../shared/Modal';
-import { useToast } from '../../context/ToastContext';
 
 interface InventoryProps {
   onNavigate: (view: ViewType) => void;
@@ -16,8 +15,7 @@ interface InventoryProps {
 
 const Inventory: React.FC<InventoryProps> = ({ onNavigate, onCheckOutUnit }) => {
   const { units, locations, userId } = useFirebase();
-  const toast = useToast();
-
+  
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -95,8 +93,8 @@ const Inventory: React.FC<InventoryProps> = ({ onNavigate, onCheckOutUnit }) => 
       // Log transaction
       const txnRef = doc(collection(db, 'transactions'));
       batch.set(txnRef, {
-        daana_id: unit.daana_id,
-        type: 'adjust',
+        unit_id: unit.daana_id,
+        type: 'remove',
         qty: unit.qty_total,
         by_user_id: userId,
         reason_note: 'Unit removed from inventory',
@@ -104,13 +102,11 @@ const Inventory: React.FC<InventoryProps> = ({ onNavigate, onCheckOutUnit }) => 
       });
       
       await batch.commit();
-
+      
       // Save the removed unit for the success modal
       const locationName = locations.find(l => l.id === unit.location_id)?.name || 'Unknown';
       setRemovedUnit({ ...unit, locationName });
-
-      toast.success('Unit removed from inventory', 3000);
-
+      
       setModalTitle('Success');
       setModalMessage('');
       setShowModal(true);
@@ -141,7 +137,7 @@ const Inventory: React.FC<InventoryProps> = ({ onNavigate, onCheckOutUnit }) => 
       
       const txnRef = doc(collection(db, 'transactions'));
       batch.set(txnRef, {
-        daana_id: unit.daana_id,
+        unit_id: unit.daana_id,
         type: 'adjust',
         by_user_id: userId,
         reason_note: 'QUARANTINE: Manual quarantine by user.',
@@ -149,7 +145,6 @@ const Inventory: React.FC<InventoryProps> = ({ onNavigate, onCheckOutUnit }) => 
       });
       
       await batch.commit();
-      toast.warning('Unit quarantined', 3000);
       showInfoModal('Success', `Unit ${unit.daana_id} has been quarantined.`);
     } catch (error: any) {
       console.error('Error quarantining unit:', error);
@@ -560,7 +555,7 @@ const Inventory: React.FC<InventoryProps> = ({ onNavigate, onCheckOutUnit }) => 
                     {/* Daana ID */}
                     <YStack minWidth="45%">
                       <Text fontSize="$1" color="$gray10" textTransform="uppercase">Daana ID</Text>
-                      <Text fontSize="$3" fontFamily="$mono" color="$color">{removedUnit.daana_id}</Text>
+                      <Text fontSize="$3" fontFamily="$mono" color="$color">{removedUnit.unit_id}</Text>
                     </YStack>
                     
                     {/* Quantity */}

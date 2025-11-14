@@ -25,8 +25,7 @@ const Scan: React.FC<ScanProps> = ({ onNavigate, onCheckOutUnit }) => {
   const [previewUnit, setPreviewUnit] = useState<Unit | null>(null);
   const [previewLocationName, setPreviewLocationName] = useState('');
 
-  const handleScanLookup = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleScanLookup = async () => {
     
     let unitIdToFind = scanInput.trim();
     if (!unitIdToFind) return;
@@ -63,13 +62,13 @@ const Scan: React.FC<ScanProps> = ({ onNavigate, onCheckOutUnit }) => {
         querySnapshot = await getDocs(q);
       }
       
-      if (querySnapshot.empty || !querySnapshot.docs[0]) {
+      if (querySnapshot.empty) {
         setFoundUnit(null);
         setNotFound(true);
         setErrorMsg(`Daana ID "${unitIdToFind}" not found.`);
       } else {
         const doc = querySnapshot.docs[0];
-        const unit: Unit = { id: doc.id, ...doc.data() } as Unit;
+        const unit = { id: doc.id, ...doc.data() } as Unit;
         setFoundUnit(unit);
         setNotFound(false);
         
@@ -144,7 +143,7 @@ const Scan: React.FC<ScanProps> = ({ onNavigate, onCheckOutUnit }) => {
     const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
     const querySnapshot = await getDocs(q);
     
-    if (!querySnapshot.empty && querySnapshot.docs[0]) {
+    if (!querySnapshot.empty) {
       const foundDoc = querySnapshot.docs[0];
       unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
     } else {
@@ -152,7 +151,7 @@ const Scan: React.FC<ScanProps> = ({ onNavigate, onCheckOutUnit }) => {
       const qrQuery = query(collection(db, 'units'), where('qr_code_value', '==', barcode));
       const qrSnapshot = await getDocs(qrQuery);
       
-      if (!qrSnapshot.empty && qrSnapshot.docs[0]) {
+      if (!qrSnapshot.empty) {
         const foundDoc = qrSnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
@@ -215,50 +214,48 @@ const Scan: React.FC<ScanProps> = ({ onNavigate, onCheckOutUnit }) => {
           <Text fontSize="$3" color="$gray">
             Scan the QR code on the DaanaRX label or enter the Daana ID manually.
           </Text>
-          <form onSubmit={handleScanLookup} style={{ width: '100%' }}>
-            <YStack space="$3">
-              <XStack space="$2" $xs={{ flexDirection: "column" }}>
-                <Input 
-                  flex={1}
-                  size="$4"
-                  value={scanInput}
-                  onChangeText={setScanInput}
-                  placeholder="Enter DaanaRX Daana ID (e.g., UNIT-123...)"
-                  borderColor="$borderColor"
-                  focusStyle={{ borderColor: "$blue" }}
-                  $xs={{ width: "100%" }}
-                />
-                <Button 
-                  size="$4"
-                  backgroundColor="$blue"
-                  color="white"
-                  hoverStyle={{ opacity: 0.9 }}
-                  pressStyle={{ opacity: 0.8 }}
-                  $xs={{ width: "100%" }}
-                  onPress={() => handleScanLookup()}
-                >
-                  Lookup
-                </Button>
-              </XStack>
-              
-              {/* Camera Scan Button */}
+          <YStack space="$3">
+            <XStack space="$2" $xs={{ flexDirection: "column" }}>
+              <Input 
+                flex={1}
+                size="$4"
+                value={scanInput}
+                onChangeText={setScanInput}
+                placeholder="Enter DaanaRX Daana ID (e.g., UNIT-123...)"
+                borderColor="$borderColor"
+                focusStyle={{ borderColor: "$blue" }}
+                $xs={{ width: "100%" }}
+              />
               <Button 
-                size="$5"
-                backgroundColor="$green"
+                size="$4"
+                backgroundColor="$blue"
                 color="white"
-                icon={<Camera size={24} />}
                 hoverStyle={{ opacity: 0.9 }}
                 pressStyle={{ opacity: 0.8 }}
-                onPress={() => setShowScanner(true)}
+                $xs={{ width: "100%" }}
+                onPress={handleScanLookup}
               >
-                <Text fontWeight="500">Scan QR Code with Camera</Text>
+                Lookup
               </Button>
-              
-              <Text fontSize="$2" textAlign="center" color="$gray">
-                Works with DaanaRX QR codes and NDC barcodes
-              </Text>
-            </YStack>
-          </form>
+            </XStack>
+            
+            {/* Camera Scan Button */}
+            <Button 
+              size="$5"
+              backgroundColor="$green"
+              color="white"
+              icon={<Camera size={24} />}
+              hoverStyle={{ opacity: 0.9 }}
+              pressStyle={{ opacity: 0.8 }}
+              onPress={() => setShowScanner(true)}
+            >
+              <Text fontWeight="500">Scan QR Code with Camera</Text>
+            </Button>
+            
+            <Text fontSize="$2" textAlign="center" color="$gray">
+              Works with DaanaRX QR codes and NDC barcodes
+            </Text>
+          </YStack>
         </YStack>
       </Card>
       

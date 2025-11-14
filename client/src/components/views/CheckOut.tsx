@@ -9,7 +9,6 @@ import Modal from '../shared/Modal';
 import ConfirmModal from '../shared/ConfirmModal';
 import BarcodeScanner from '../shared/BarcodeScanner';
 import UnitPreviewModal from '../shared/UnitPreviewModal';
-import { useToast } from '../../context/ToastContext';
 
 interface CheckOutProps {
   onNavigate: (view: ViewType) => void;
@@ -18,12 +17,12 @@ interface CheckOutProps {
 
 const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => {
   const { units, userId, locations } = useFirebase();
-  const toast = useToast();
   
-  const [daanaId, setDaanaId] = useState<string>('');
-  const [qty, setQty] = useState<string>('');
-  const [patientRef, setPatientRef] = useState<string>('');
-  const [reason, setReason] = useState<string>('');
+  const [daanaId, setDaanaId] = useState('');
+  const [qty, setQty] = useState('');
+  const [patientRef, setPatientRef] = useState('');
+  const [reason, setReason] = useState('');
+  const [unitDisplayName, setUnitDisplayName] = useState('');
   
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
@@ -53,7 +52,6 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     if (prefilledDaanaId) {
       handleUnitLookup(prefilledDaanaId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefilledDaanaId]);
 
   const resetForm = () => {
@@ -61,6 +59,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     setQty('');
     setPatientRef('');
     setReason('');
+    setUnitDisplayName('');
     setAvailableQty(null);
     setQtyError('');
     setConfirmedUnit(null);
@@ -96,7 +95,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
       const querySnapshot = await getDocs(q);
       
-      if (!querySnapshot.empty && querySnapshot.docs[0]) {
+      if (!querySnapshot.empty) {
         const foundDoc = querySnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
@@ -110,6 +109,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       setPreviewLocationName(locationName);
       setShowPreviewModal(true);
     } else {
+      setUnitDisplayName('');
       setAvailableQty(null);
       showInfoModal('Error', 'Daana ID not found.');
     }
@@ -155,24 +155,19 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     }
     
     // Find the unit
-    let unit: Unit | null = null;
-    const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty && querySnapshot.docs[0]) {
-      const foundDoc = querySnapshot.docs[0];
-      unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
-    } else {
-      // Try by qr_code_value as fallback
-      const qrQuery = query(collection(db, 'units'), where('qr_code_value', '==', barcode));
-      const qrSnapshot = await getDocs(qrQuery);
-
-      if (!qrSnapshot.empty && qrSnapshot.docs[0]) {
-        const foundDoc = qrSnapshot.docs[0];
+    let unit = units.find(u => u.daana_id === extractedDaanaId);
+    
+    if (!unit) {
+      // Try database lookup
+      const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const foundDoc = querySnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
     }
-
+    
     // Only show modal if unit was found - silently ignore not found
     if (unit) {
       // Show preview modal
@@ -186,7 +181,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       }, 100); // Small delay to ensure scanner closes first
     } else {
       // Unit not found - just log it, don't show error modal
-      console.log('⚠️ Unit not found for barcode:', barcode);
+      console.log('⚠️ Unit not found for ID:', extractedDaanaId);
     }
   };
   
@@ -195,6 +190,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     if (previewUnit) {
       setDaanaId(previewUnit.daana_id);
       setAvailableQty(previewUnit.qty_total);
+      setUnitDisplayName(''); // Don't persist display name
       setConfirmedUnit(previewUnit); // Store confirmed unit for display
       setConfirmedLocationName(previewLocationName);
     }
@@ -227,7 +223,7 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
       const q = query(collection(db, 'units'), where('daana_id', '==', extractedDaanaId));
       const querySnapshot = await getDocs(q);
       
-      if (!querySnapshot.empty && querySnapshot.docs[0]) {
+      if (!querySnapshot.empty) {
         const foundDoc = querySnapshot.docs[0];
         unit = { id: foundDoc.id, ...foundDoc.data() } as Unit;
       }
@@ -250,19 +246,16 @@ const CheckOut: React.FC<CheckOutProps> = ({ onNavigate, prefilledDaanaId }) => 
     setShowModal(true);
   };
 
-const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
-  if (e) {
-    e.preventDefault();
-  }
-
-  // Check for quantity validation errors
-  if (qtyError) {
-    showInfoModal('Validation Error', qtyError);
-    return;
-  }
-  
-  const daanaIdToFind = daanaId.trim();
-  const qtyToDispense = parseInt(qty, 10);
+  const handleCheckOut = async () => {
+    
+    // Check for quantity validation errors
+    if (qtyError) {
+      showInfoModal('Validation Error', qtyError);
+      return;
+    }
+    
+    const daanaIdToFind = daanaId.trim();
+    const qtyToDispense = parseInt(qty, 10);
     
     // Find unit
     let unit = units.find(u => u.daana_id === daanaIdToFind);
@@ -272,7 +265,7 @@ const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
       const q = query(collection(db, 'units'), where('daana_id', '==', daanaIdToFind));
       const querySnapshot = await getDocs(q);
       
-      if (querySnapshot.empty || !querySnapshot.docs[0]) {
+      if (querySnapshot.empty) {
         showInfoModal('Error', 'Daana ID not found.');
         return;
       }
@@ -299,39 +292,17 @@ const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
       return;
     }
     
-    // FEFO Check - Query Firestore directly for accuracy
-    let olderUnit: Unit | undefined;
+    // FEFO Check
+    let olderUnit;
     if (unit) {
-      const currentUnit = unit; // Store in const to satisfy TypeScript
-      try {
-        const fefoQuery = query(
-          collection(db, 'units'),
-          where('med_generic', '==', currentUnit.med_generic),
-          where('strength', '==', currentUnit.strength),
-          where('status', 'in', ['in_stock', 'partial'])
-        );
-        const fefoSnapshot = await getDocs(fefoQuery);
-
-        // Find units with earlier expiration dates
-        fefoSnapshot.forEach((doc) => {
-          const potentialUnit = { id: doc.id, ...doc.data() } as Unit;
-          if (potentialUnit.id !== docId && potentialUnit.exp_date < currentUnit.exp_date) {
-            if (!olderUnit || potentialUnit.exp_date < olderUnit.exp_date) {
-              olderUnit = potentialUnit;
-            }
-          }
-        });
-      } catch (error) {
-        console.error('Error checking FEFO:', error);
-        // Fall back to context-based check if Firestore query fails
-        olderUnit = units.find(u =>
-          u.id !== docId &&
-          u.med_generic === currentUnit.med_generic &&
-          u.strength === currentUnit.strength &&
-          (u.status === 'in_stock' || u.status === 'partial') &&
-          u.exp_date < currentUnit.exp_date
-        );
-      }
+      const currentUnit = unit; // Create a const reference for TypeScript
+      olderUnit = units.find(u => 
+        u.id !== docId &&
+        u.med_generic === currentUnit.med_generic &&
+        u.strength === currentUnit.strength &&
+        (u.status === 'in_stock' || u.status === 'partial') &&
+        u.exp_date < currentUnit.exp_date
+      );
     }
     
     const proceedWithCheckout = async () => {
@@ -365,12 +336,11 @@ const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
         });
         
         await batch.commit();
-
-        const successMessage = newQty === 0
-          ? `Dispensed all ${qtyToDispense} units. Unit removed from inventory.`
-          : `Dispensed ${qtyToDispense} units. ${newQty} remaining.`;
-
-        toast.success(successMessage, 4000);
+        
+        const successMessage = newQty === 0 
+          ? `Dispensed all ${qtyToDispense} units from ${unit!.daana_id}. Unit removed from inventory.`
+          : `Dispensed ${qtyToDispense} from ${unit!.daana_id}. New quantity: ${newQty}.`;
+        
         showInfoModal('Success', successMessage);
         
         // Reset form completely including daanaId input
@@ -524,7 +494,6 @@ const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
         marginHorizontal="auto"
         $xs={{ maxWidth: "100%" }}
       >
-        <form onSubmit={handleCheckOut} style={{ width: '100%' }}>
         <YStack space="$4">
           <YStack space="$2">
             <Label htmlFor="daanaId" fontSize="$3" fontWeight="500" color="$color">
@@ -538,6 +507,7 @@ const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
                 value={daanaId}
                 onChangeText={(value: string) => {
                   setDaanaId(value);
+                  setUnitDisplayName('');
                 }}
                 placeholder="Scan internal DaanaRX QR" 
                 borderColor="$borderColor"
@@ -587,6 +557,8 @@ const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
               keyboardType="numeric"
               borderColor={qtyError ? "$red" : "$borderColor"}
               focusStyle={{ borderColor: qtyError ? "$red" : "$blue" }}
+              min={1}
+              max={availableQty || undefined}
             />
             {qtyError && (
               <Text fontSize="$3" color="$red">{qtyError}</Text>
@@ -626,6 +598,7 @@ const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
           
           <Button 
             size="$5"
+            onPress={handleCheckOut}
             disabled={!!qtyError}
             backgroundColor={qtyError ? "$gray" : "$yellow"}
             color={qtyError ? "#374151" : "white"}
@@ -633,12 +606,10 @@ const handleCheckOut = async (e?: React.FormEvent<HTMLFormElement>) => {
             pressStyle={{ opacity: qtyError ? 1 : 0.8 }}
             cursor={qtyError ? "not-allowed" : "pointer"}
             opacity={qtyError ? 0.6 : 1}
-            onPress={() => handleCheckOut()}
           >
             Dispense Stock
           </Button>
         </YStack>
-        </form>
       </Card>
       
       <Modal

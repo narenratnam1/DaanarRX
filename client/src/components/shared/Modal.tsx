@@ -15,15 +15,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay
+        <Dialog.Overlay 
           key="overlay"
           animation="quick"
           opacity={0.5}
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="rgba(0,0,0,0.4)"
-          // @ts-ignore - Dialog.Overlay doesn't support position in types
-          position="fixed"
+          position="absolute"
           inset={0}
           zIndex={50}
           onPress={onClose}

@@ -1,0 +1,10 @@
+{
+  "name": "daanarx-api",
+  "version": "1.0.0",
+  "description": "DaanaRX API serverless functions",
+  "dependencies": {
+    "axios": "^1.6.2"
+  }
+}
+
+

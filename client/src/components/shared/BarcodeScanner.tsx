@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import { Camera, CameraOff, X } from 'lucide-react';
-import { useToast } from '../../context/ToastContext';
 
 interface BarcodeScannerProps {
   isOpen: boolean;
@@ -10,9 +9,9 @@ interface BarcodeScannerProps {
   title?: string;
 }
 
-const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
-  isOpen,
-  onClose,
+const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ 
+  isOpen, 
+  onClose, 
   onScan,
   title = "Scan Barcode"
 }) => {
@@ -23,41 +22,58 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const isMountedRef = useRef<boolean>(true);
-  const toast = useToast();
 
   useEffect(() => {
-    isMountedRef.current = true;
-
     if (isOpen) {
-      // Reset state when opening
-      setError('');
-      setDevices([]);
-      setSelectedDeviceId('');
       initializeScanner();
     } else {
       stopScanning();
     }
 
     return () => {
-      isMountedRef.current = false;
       stopScanning();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const initializeScanner = async () => {
-    if (!isMountedRef.current) return;
-
     try {
       setError('');
+      
+      // Check if mediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError('Camera API not supported in this browser. Please use Chrome, Firefox, Safari, or Edge.');
+        return;
+      }
 
-      // Get available video devices first
+      // Request camera permission with basic constraints first
+      let tempStream: MediaStream | null = null;
+      try {
+        tempStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment' // Prefer back camera on mobile
+          } 
+        });
+        
+        // Stop the temporary stream after getting permission
+        tempStream.getTracks().forEach(track => track.stop());
+      } catch (permErr: any) {
+        console.error('Permission error:', permErr);
+        if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
+          setError('Camera access denied. Please allow camera access in your browser settings and refresh the page.');
+        } else if (permErr.name === 'NotFoundError' || permErr.name === 'DevicesNotFoundError') {
+          setError('No camera found. Please connect a camera and try again.');
+        } else if (permErr.name === 'NotReadableError' || permErr.name === 'TrackStartError') {
+          setError('Camera is already in use by another application. Please close other apps using the camera.');
+        } else {
+          setError(`Error accessing camera: ${permErr.message || permErr.name}`);
+        }
+        return;
+      }
+      
+      // Get available video devices (now that we have permission, labels will be available)
       const allDevices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = allDevices.filter(device => device.kind === 'videoinput');
-
-      if (!isMountedRef.current) return;
-
+      
       if (videoDevices.length === 0) {
         setError('No camera found. Please connect a camera and try again.');
         return;
@@ -66,140 +82,199 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       setDevices(videoDevices);
 
       // Prefer back camera on mobile devices
-      const backCamera = videoDevices.find((device: MediaDeviceInfo) =>
-        device.label.toLowerCase().includes('back') ||
-        device.label.toLowerCase().includes('rear')
-      );
-
-      const deviceId: string = backCamera?.deviceId || videoDevices[0]?.deviceId || '';
-      if (!deviceId) {
-        setError('No valid camera device found.');
-        return;
-      }
+      const backCamera = videoDevices.find((device: MediaDeviceInfo) => {
+        const label = device.label.toLowerCase();
+        return label.includes('back') || label.includes('rear') || label.includes('environment');
+      });
+      
+      // Fallback: prefer camera with "facingMode: environment" constraint
+      const deviceId = backCamera?.deviceId || videoDevices[0].deviceId;
       setSelectedDeviceId(deviceId);
-
-      // Start scanning with the selected device
-      if (isMountedRef.current) {
-        await startScanning(deviceId);
-      }
+      
+      startScanning(deviceId);
     } catch (err: any) {
       console.error('Error initializing scanner:', err);
-      if (!isMountedRef.current) return;
-
-      if (err.name === 'NotAllowedError') {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setError('Camera access denied. Please allow camera access in your browser settings.');
-      } else if (err.name === 'NotFoundError') {
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setError('No camera found. Please connect a camera and try again.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setError('Camera is already in use. Please close other applications using the camera.');
       } else {
-        setError('Error accessing camera: ' + err.message);
+        setError('Error accessing camera: ' + (err.message || err.name));
       }
     }
   };
 
   const startScanning = async (deviceId: string) => {
-    if (!videoRef.current || !isMountedRef.current) return;
+    if (!videoRef.current) {
+      console.error('Video element not available');
+      setError('Video element not ready. Please try again.');
+      return;
+    }
 
     try {
-      setIsScanning(true);
+      setIsScanning(false); // Set to false initially while we set up
       setError('');
 
-      // Get the media stream and store reference
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: deviceId } }
-      });
-
-      if (!isMountedRef.current) {
-        // Component unmounted during async operation, cleanup stream
-        stream.getTracks().forEach(track => track.stop());
-        return;
+      // Try exact deviceId first, fallback to ideal if that fails
+      let stream: MediaStream;
+      let actualDeviceId = deviceId;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            deviceId: { exact: deviceId },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+      } catch (exactErr: any) {
+        // Fallback: try without exact constraint (some browsers need this)
+        console.log('Exact deviceId failed, trying fallback:', exactErr.message);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              deviceId: deviceId,
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          });
+        } catch (fallbackErr: any) {
+          // Last resort: try with facingMode
+          console.log('DeviceId failed, trying facingMode:', fallbackErr.message);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              facingMode: 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          });
+          // Get the actual deviceId from the stream
+          const videoTrack = stream.getVideoTracks()[0];
+          if (videoTrack && videoTrack.getSettings().deviceId) {
+            actualDeviceId = videoTrack.getSettings().deviceId!;
+            console.log('Using deviceId from stream:', actualDeviceId);
+          }
+        }
       }
 
       streamRef.current = stream;
 
       // Attach stream to video element
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      const video = videoRef.current;
+      video.srcObject = stream;
 
+      // Wait for video to be ready and play it
+      await new Promise<void>((resolve, reject) => {
+        const onLoadedMetadata = () => {
+          video.removeEventListener('loadedmetadata', onLoadedMetadata);
+          video.removeEventListener('error', onError);
+          
+          // Explicitly play the video (required by Chrome autoplay policy)
+          video.play()
+            .then(() => {
+              console.log('✅ Video playing successfully');
+              resolve();
+            })
+            .catch((playErr: any) => {
+              console.error('Error playing video:', playErr);
+              reject(new Error('Failed to start video playback: ' + playErr.message));
+            });
+        };
+
+        const onError = (err: Event) => {
+          video.removeEventListener('loadedmetadata', onLoadedMetadata);
+          video.removeEventListener('error', onError);
+          reject(new Error('Video element error'));
+        };
+
+        video.addEventListener('loadedmetadata', onLoadedMetadata);
+        video.addEventListener('error', onError);
+
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          video.removeEventListener('loadedmetadata', onLoadedMetadata);
+          video.removeEventListener('error', onError);
+          reject(new Error('Video loading timeout'));
+        }, 5000);
+      });
+
+      // Now start the barcode reader
+      setIsScanning(true);
       const codeReader = new BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
 
+      // Use actualDeviceId (which may have been updated from stream if we used fallback)
       await codeReader.decodeFromVideoDevice(
-        deviceId,
-        videoRef.current,
+        actualDeviceId,
+        video,
         (result, err) => {
-          if (!isMountedRef.current) return;
-
           if (result) {
             const barcode = result.getText();
             console.log('📷 Scanned barcode:', barcode);
-
+            
             // Only call onScan if barcode is not empty
             if (barcode && barcode.trim()) {
               stopScanning();
-              toast.success('Barcode scanned successfully!', 2000);
               // Small delay to ensure camera is fully released before closing modal and calling callback
               setTimeout(() => {
-                if (isMountedRef.current) {
-                  onScan(barcode);
-                  onClose();
-                }
+                onScan(barcode);
+                onClose(); // Don't call handleClose here since we already stopped scanning
               }, 50);
             } else {
               console.log('⚠️ Empty barcode detected, ignoring');
-              toast.warning('Empty barcode detected, please try again', 2000);
             }
           }
-
+          
           if (err && !(err instanceof NotFoundException)) {
+            // Only log non-NotFoundException errors (NotFoundException is normal when no barcode detected)
             console.error('Scan error:', err);
           }
         }
       );
     } catch (err: any) {
       console.error('Error starting scanner:', err);
-      if (!isMountedRef.current) return;
-      setError('Error starting scanner: ' + err.message);
+      
+      // Stop any stream that might have been created
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError('Camera access denied. Please allow camera access and refresh the page.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setError('Camera not found. Please check your camera connection.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setError('Camera is in use by another application. Please close other apps.');
+      } else if (err.message && err.message.includes('playback')) {
+        setError('Failed to start camera. Please try again or use a different browser.');
+      } else {
+        setError('Error starting scanner: ' + (err.message || err.name));
+      }
       setIsScanning(false);
     }
   };
 
   const stopScanning = () => {
-    console.log('🛑 Stopping scanner...');
-
-    // Stop the code reader first
+    // Stop the code reader
     if (codeReaderRef.current) {
-      try {
-        codeReaderRef.current.reset();
-        console.log('📷 Code reader reset');
-      } catch (err) {
-        console.error('Error resetting code reader:', err);
-      }
+      codeReaderRef.current.reset();
       codeReaderRef.current = null;
     }
 
     // Stop all video tracks to release camera
     if (streamRef.current) {
-      try {
-        streamRef.current.getTracks().forEach(track => {
-          track.stop();
-          console.log('📷 Camera track stopped:', track.label);
-        });
-      } catch (err) {
-        console.error('Error stopping camera tracks:', err);
-      }
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('📷 Camera track stopped:', track.label);
+      });
       streamRef.current = null;
     }
 
     // Clear video element
     if (videoRef.current) {
-      try {
-        videoRef.current.srcObject = null;
-        // Pause the video to ensure complete cleanup
-        videoRef.current.pause();
-      } catch (err) {
-        console.error('Error clearing video element:', err);
-      }
+      videoRef.current.srcObject = null;
     }
 
     setIsScanning(false);
@@ -249,6 +324,8 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             ref={videoRef}
             className="w-full h-96 object-cover"
             playsInline
+            autoPlay
+            muted
           />
           
           {/* Scanning Overlay */}

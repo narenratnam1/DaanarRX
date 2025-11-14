@@ -4,7 +4,9 @@ import { auth, db } from '../firebase/config';
 import { 
   collection, 
   onSnapshot, 
-  CollectionReference
+  query,
+  CollectionReference,
+  DocumentData
 } from 'firebase/firestore';
 import { Location, Lot, Unit, Transaction } from '../types';
 

@@ -100,7 +100,7 @@ const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
         >
           Back to Home
         </Button>
-        <H2 fontSize="$9" fontWeight="600" color="$color" $xs={{ fontSize: "$8", width: "100%", textAlign: "center" }}>
+        <H2 fontSize="$9" fontWeight="600" color="$color" $xs={{ fontSize: "$8", width: "100%" }}>
           Transaction Log
         </H2>
         <Button 
