@@ -39,10 +39,50 @@ export function QRScanner({
     };
   }, [opened]);
 
+  const requestCameraPermission = async (): Promise<boolean> => {
+    try {
+      // Check if navigator.mediaDevices is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError('Camera is not supported on this browser. Please use manual entry.');
+        return false;
+      }
+
+      // Request camera permission explicitly
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      
+      // Stop the test stream immediately
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (err: any) {
+      console.error('Camera permission error:', err);
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError('Camera permission denied. Please enable camera access in your browser settings and reload.');
+      } else if (err.name === 'NotFoundError') {
+        setError('No camera found on this device. Please use manual entry.');
+      } else if (err.name === 'NotReadableError') {
+        setError('Camera is already in use by another application.');
+      } else {
+        setError('Failed to access camera. Please check permissions or use manual entry.');
+      }
+      return false;
+    }
+  };
+
   const startScanner = async () => {
     try {
       setIsScanning(true);
       setError('');
+
+      // Request camera permission first
+      const hasPermission = await requestCameraPermission();
+      if (!hasPermission) {
+        setIsScanning(false);
+        setShowManualInput(true);
+        return;
+      }
 
       const html5QrCode = new Html5Qrcode('qr-reader');
       scannerRef.current = html5QrCode;
@@ -66,6 +106,7 @@ export function QRScanner({
         'Failed to start camera. Please check permissions or use manual entry.'
       );
       setIsScanning(false);
+      setShowManualInput(true);
     }
   };
 
