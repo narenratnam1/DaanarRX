@@ -1,3 +1,3 @@
-export { typeDefs } from './schema.js';
-export { resolvers } from './resolvers.js';
+export { typeDefs } from './schema';
+export { resolvers } from './resolvers';
 

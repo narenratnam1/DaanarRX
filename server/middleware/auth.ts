@@ -30,10 +30,31 @@ export async function authMiddleware(
   }
 }
 
-export function createGraphQLContext({ req }: { req: Request }): GraphQLContext {
+export function createGraphQLContext({ req }: { req: any }): GraphQLContext {
   return {
     user: (req as any).user,
     clinic: (req as any).clinic,
     token: (req as any).token,
   };
+}
+
+export async function createGraphQLContextFromNextRequest(req: any): Promise<GraphQLContext> {
+  try {
+    const authHeader = req.headers.get('authorization');
+    const token = extractToken(authHeader);
+
+    if (token) {
+      const payload = verifyToken(token);
+      const user = await getUserById(payload.userId);
+      const clinic = user ? await getClinicById(user.clinicId) : null;
+
+      if (user && clinic) {
+        return { user, clinic, token };
+      }
+    }
+  } catch (error) {
+    // Token invalid or expired, return empty context
+  }
+
+  return { user: undefined, clinic: undefined, token: undefined };
 }

@@ -1,5 +1,5 @@
 import { supabaseServer } from '../utils/supabase';
-import { Transaction, CheckOutRequest } from '../../src/types/index';
+import { Transaction, CheckOutRequest } from '@/types';
 
 /**
  * Check out a unit (dispense medication)

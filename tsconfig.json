@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@server/*": ["./server/*"]
     },
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,

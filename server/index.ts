@@ -6,8 +6,8 @@ import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { typeDefs, resolvers } from './graphql/index.js';
-import { authMiddleware, createGraphQLContext } from './middleware/index.js';
+import { typeDefs, resolvers } from './graphql/index';
+import { authMiddleware, createGraphQLContext } from './middleware/index';
 
 const PORT = process.env.GRAPHQL_PORT || process.env.PORT || 4000;
 

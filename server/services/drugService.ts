@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { supabaseServer } from '../utils/supabase';
-import { DrugSearchResult } from '../../src/types/index';
+import { DrugSearchResult } from '@/types';
 
 const RXNORM_API_BASE = 'https://rxnav.nlm.nih.gov/REST';
 const OPENFDA_API_BASE = 'https://api.fda.gov/drug';

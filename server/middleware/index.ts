@@ -1,2 +1,2 @@
-export { authMiddleware, createGraphQLContext } from './auth.js';
+export { authMiddleware, createGraphQLContext, createGraphQLContextFromNextRequest } from './auth';
 

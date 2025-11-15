@@ -1,5 +1,5 @@
 import { supabaseServer } from '../utils/supabase';
-import { Location, Lot } from '../../src/types/index';
+import { Location, Lot } from '@/types';
 
 /**
  * Create a new location

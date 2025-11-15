@@ -1,8 +1,8 @@
 import { ApolloServer } from '@apollo/server';
 import { HeaderMap } from '@apollo/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { typeDefs, resolvers } from '../../../../../server/graphql';
-import { createGraphQLContext } from '../../../../../server/middleware';
+import { typeDefs, resolvers } from '@server/graphql';
+import { createGraphQLContextFromNextRequest } from '@server/middleware';
 
 const server = new ApolloServer({
   typeDefs,
@@ -36,7 +36,7 @@ async function handleRequest(req: NextRequest) {
       body,
       search: req.nextUrl.search,
     },
-    context: async () => createGraphQLContext({ req }),
+    context: async () => createGraphQLContextFromNextRequest(req),
   });
 
   const responseHeaders: Record<string, string> = {};

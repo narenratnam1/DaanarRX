@@ -1,6 +1,6 @@
 import { supabaseServer } from '../utils/supabase';
 import { generateToken } from '../utils/auth';
-import { User, Clinic, AuthResponse } from '../../src/types/index';
+import { User, Clinic, AuthResponse } from '@/types';
 
 /**
  * Sign up a new user and create their clinic

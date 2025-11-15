@@ -1,4 +1,4 @@
-import { User, Clinic } from '../../src/types/index';
+import { User, Clinic } from '@/types';
 
 export interface GraphQLContext {
   user?: User;

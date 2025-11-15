@@ -1,5 +1,5 @@
 import { supabaseServer } from '../utils/supabase';
-import { Unit, CreateUnitRequest } from '../../src/types/index';
+import { Unit, CreateUnitRequest } from '@/types';
 import { getOrCreateDrug } from './drugService';
 
 /**
