@@ -212,22 +212,23 @@ function CheckOutContent() {
               </Button>
             </Group>
 
-            <TextInput
-              label="Unit ID"
-              placeholder="Enter unit ID manually"
-              value={unitId}
-              onChange={(e) => setUnitId(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearch();
-                }
-              }}
-              rightSection={
-                <Button size="xs" onClick={handleSearch} loading={loadingUnit}>
-                  Search
-                </Button>
-              }
-            />
+            <Group align="flex-end" gap="xs">
+              <TextInput
+                label="Unit ID"
+                placeholder="Enter unit ID manually"
+                value={unitId}
+                onChange={(e) => setUnitId(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch();
+                  }
+                }}
+                style={{ flex: 1 }}
+              />
+              <Button onClick={handleSearch} loading={loadingUnit}>
+                Search
+              </Button>
+            </Group>
 
             {searchData?.searchUnitsByQuery && searchData.searchUnitsByQuery.length > 0 && (
               <Card withBorder>

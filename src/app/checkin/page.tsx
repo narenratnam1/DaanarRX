@@ -378,22 +378,23 @@ export default function CheckInPage() {
                   </Button>
                 </Group>
 
-                <TextInput
-                  label="NDC Barcode"
-                  placeholder="Enter NDC code"
-                  value={ndcInput}
-                  onChange={(e) => setNdcInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSearchNDC();
-                    }
-                  }}
-                  rightSection={
-                    <Button size="xs" onClick={() => handleSearchNDC()}>
-                      Search
-                    </Button>
-                  }
-                />
+                <Group align="flex-end" gap="xs">
+                  <TextInput
+                    label="NDC Barcode"
+                    placeholder="Enter NDC code"
+                    value={ndcInput}
+                    onChange={(e) => setNdcInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearchNDC();
+                      }
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <Button onClick={() => handleSearchNDC()}>
+                    Search
+                  </Button>
+                </Group>
 
                 {selectedDrug && (
                   <Card withBorder p="sm" bg="green.0">

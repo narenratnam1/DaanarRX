@@ -179,6 +179,7 @@ export default function ScanPage() {
                   </Button>
                 )
               }
+              rightSectionWidth={unitId ? 80 : 0}
             />
 
             {searchData?.searchUnitsByQuery && searchData.searchUnitsByQuery.length > 0 && !unit && (
