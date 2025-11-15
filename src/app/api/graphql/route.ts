@@ -1,9 +1,9 @@
 import { ApolloServer } from '@apollo/server';
 import { HeaderMap } from '@apollo/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { typeDefs } from '@/graphql/schema';
-import { resolvers } from '@/graphql/resolvers';
-import { createGraphQLContext } from '@/graphql/middleware/auth';
+import { typeDefs } from '../../../../../server/graphql/schema';
+import { resolvers } from '../../../../../server/graphql/resolvers';
+import { createGraphQLContext } from '../../../../../server/middleware/auth';
 
 const server = new ApolloServer({
   typeDefs,
@@ -45,7 +45,12 @@ async function handleRequest(req: NextRequest) {
     responseHeaders[key] = value;
   }
 
-  return new NextResponse(httpGraphQLResponse.body, {
+  // Convert body to string
+  const bodyString = httpGraphQLResponse.body.kind === 'complete'
+    ? httpGraphQLResponse.body.string
+    : '';
+
+  return new NextResponse(bodyString, {
     status: httpGraphQLResponse.status || 200,
     headers: responseHeaders,
   });
