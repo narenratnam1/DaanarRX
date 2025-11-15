@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npm run build:server",
+    "build:server": "tsc -p tsconfig.server.json",
     "start": "next start",
+    "start:server": "node dist/server/index.js",
     "lint": "next lint",
     "server": "tsx watch server/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\""
@@ -13,7 +15,6 @@
   "dependencies": {
     "@apollo/client": "^3.11.0",
     "@apollo/server": "^4.11.0",
-    "@ericblade/quagga2": "^1.8.0",
     "@hookform/resolvers": "^3.9.0",
     "@mantine/core": "^7.13.0",
     "@mantine/dates": "^7.17.8",
