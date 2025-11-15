@@ -114,47 +114,68 @@ ALTER TABLE lots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE units ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
--- Clinics: Users can only see their own clinic
+-- Clinics: Users can see their own clinic
 CREATE POLICY clinic_isolation ON clinics
   FOR ALL
-  USING (clinic_id = (
-    SELECT clinic_id FROM users WHERE user_id = auth.uid()
-  ));
+  USING (
+    EXISTS (
+      SELECT 1 FROM users 
+      WHERE users.user_id = auth.uid() 
+      AND users.clinic_id = clinics.clinic_id
+    )
+  );
 
--- Users: Users can only see users from their clinic
+-- Users: Users can see users from their own clinic
 CREATE POLICY user_isolation ON users
   FOR ALL
-  USING (clinic_id = (
-    SELECT clinic_id FROM users WHERE user_id = auth.uid()
-  ));
+  USING (
+    user_id = auth.uid()
+    OR
+    clinic_id IN (
+      SELECT clinic_id FROM users WHERE user_id = auth.uid()
+    )
+  );
+
+-- Special policy for user creation during signup
+CREATE POLICY user_insert_own ON users
+  FOR INSERT
+  WITH CHECK (user_id = auth.uid());
 
 -- Locations: Users can only see locations from their clinic
 CREATE POLICY location_isolation ON locations
   FOR ALL
-  USING (clinic_id = (
-    SELECT clinic_id FROM users WHERE user_id = auth.uid()
-  ));
+  USING (
+    clinic_id IN (
+      SELECT clinic_id FROM users WHERE user_id = auth.uid()
+    )
+  );
 
 -- Lots: Users can only see lots from their clinic
 CREATE POLICY lot_isolation ON lots
   FOR ALL
-  USING (clinic_id = (
-    SELECT clinic_id FROM users WHERE user_id = auth.uid()
-  ));
+  USING (
+    clinic_id IN (
+      SELECT clinic_id FROM users WHERE user_id = auth.uid()
+    )
+  );
 
 -- Units: Users can only see units from their clinic
 CREATE POLICY unit_isolation ON units
   FOR ALL
-  USING (clinic_id = (
-    SELECT clinic_id FROM users WHERE user_id = auth.uid()
-  ));
+  USING (
+    clinic_id IN (
+      SELECT clinic_id FROM users WHERE user_id = auth.uid()
+    )
+  );
 
 -- Transactions: Users can only see transactions from their clinic
 CREATE POLICY transaction_isolation ON transactions
   FOR ALL
-  USING (clinic_id = (
-    SELECT clinic_id FROM users WHERE user_id = auth.uid()
-  ));
+  USING (
+    clinic_id IN (
+      SELECT clinic_id FROM users WHERE user_id = auth.uid()
+    )
+  );
 
 -- Drugs table is global, no RLS needed
 ALTER TABLE drugs ENABLE ROW LEVEL SECURITY;
