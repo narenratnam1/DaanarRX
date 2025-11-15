@@ -1,15 +1,12 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextRequest } from 'next/server';
 import { verifyToken, extractToken } from '../utils/auth';
 import { getUserById, getClinicById } from '../services/authService';
 import { GraphQLContext } from '../types/index';
 
-export async function authMiddleware(
-  req: Request,
-  _res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function createGraphQLContext({ req }: { req: NextRequest }): Promise<GraphQLContext> {
   try {
-    const token = extractToken(req.headers.authorization);
+    const authHeader = req.headers.get('authorization');
+    const token = extractToken(authHeader);
 
     if (token) {
       const payload = verifyToken(token);
@@ -17,23 +14,21 @@ export async function authMiddleware(
       const clinic = user ? await getClinicById(user.clinicId) : null;
 
       if (user && clinic) {
-        (req as any).user = user;
-        (req as any).clinic = clinic;
-        (req as any).token = token;
+        return {
+          user,
+          clinic,
+          token,
+        };
       }
     }
-
-    next();
   } catch (error) {
     // Token invalid or expired, continue without auth
-    next();
+    console.error('Auth error:', error);
   }
-}
 
-export function createGraphQLContext({ req }: { req: Request }): GraphQLContext {
   return {
-    user: (req as any).user,
-    clinic: (req as any).clinic,
-    token: (req as any).token,
+    user: undefined,
+    clinic: undefined,
+    token: undefined,
   };
 }

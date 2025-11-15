@@ -16,7 +16,7 @@ export function verifyToken(token: string): JWTPayload {
   }
 }
 
-export function extractToken(authHeader?: string): string | null {
+export function extractToken(authHeader?: string | null): string | null {
   if (!authHeader) return null;
 
   const parts = authHeader.split(' ');
