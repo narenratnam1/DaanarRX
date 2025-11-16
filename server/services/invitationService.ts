@@ -253,9 +253,25 @@ export const invitationService = {
     }
 
     return {
-      user,
+      user: {
+        userId: user.user_id,
+        username: user.username,
+        email: user.email,
+        clinicId: user.clinic_id,
+        userRole: user.user_role,
+        createdAt: new Date(user.created_at),
+        updatedAt: new Date(user.updated_at),
+      },
       token: signInData.session.access_token,
-      clinic,
+      clinic: {
+        clinicId: clinic.clinic_id,
+        name: clinic.name,
+        primaryColor: clinic.primary_color,
+        secondaryColor: clinic.secondary_color,
+        logoUrl: clinic.logo_url,
+        createdAt: new Date(clinic.created_at),
+        updatedAt: new Date(clinic.updated_at),
+      },
     };
   },
 
