@@ -95,17 +95,6 @@ export function AppShell({ children }: AppShellProps) {
         <Group h="100%" px="md" justify="space-between">
           <Group>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            {showBackButton && (
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                size="lg"
-                onClick={handleBack}
-                aria-label="Go back"
-              >
-                <IconArrowLeft size={20} />
-              </ActionIcon>
-            )}
             <Text size="xl" fw={700}>
               {clinic?.name || 'DaanaRx'}
             </Text>
@@ -136,7 +125,26 @@ export function AppShell({ children }: AppShellProps) {
         ))}
       </MantineAppShell.Navbar>
 
-      <MantineAppShell.Main>{children}</MantineAppShell.Main>
+      <MantineAppShell.Main style={{ position: 'relative' }}>
+        {showBackButton && (
+          <ActionIcon
+            variant="filled"
+            color="blue"
+            size="lg"
+            onClick={handleBack}
+            aria-label="Go back"
+            style={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              zIndex: 100,
+            }}
+          >
+            <IconArrowLeft size={20} />
+          </ActionIcon>
+        )}
+        {children}
+      </MantineAppShell.Main>
     </MantineAppShell>
   );
 }
