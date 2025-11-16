@@ -4,6 +4,7 @@
 export type UserRole = 'superadmin' | 'admin' | 'employee';
 export type TempType = 'fridge' | 'room temp';
 export type TransactionType = 'adjust' | 'check_out' | 'check_in';
+export type InvitationStatus = 'invited' | 'accepted' | 'expired';
 export type StrengthUnit = string; // mg, g, mcg, etc.
 export type DrugForm = string; // tablet, capsule, liquid, etc.
 
@@ -26,6 +27,24 @@ export interface Clinic {
   logoUrl?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Invitation {
+  invitationId: string;
+  email: string;
+  clinicId: string;
+  invitedBy: string;
+  invitedByUser?: {
+    userId: string;
+    username: string;
+    email: string;
+  };
+  userRole: string;
+  status: InvitationStatus;
+  invitationToken: string;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt?: string;
 }
 
 export interface Location {

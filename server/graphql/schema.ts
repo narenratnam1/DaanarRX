@@ -22,6 +22,26 @@ export const typeDefs = `#graphql
     updatedAt: DateTime!
   }
 
+  type Invitation {
+    invitationId: ID!
+    email: String!
+    clinicId: ID!
+    invitedBy: ID!
+    invitedByUser: User!
+    userRole: String!
+    status: InvitationStatus!
+    invitationToken: ID!
+    createdAt: DateTime!
+    expiresAt: DateTime!
+    acceptedAt: DateTime
+  }
+
+  enum InvitationStatus {
+    invited
+    accepted
+    expired
+  }
+
   type Location {
     locationId: ID!
     name: String!
@@ -149,6 +169,16 @@ export const typeDefs = `#graphql
     password: String!
   }
 
+  input SendInvitationInput {
+    email: String!
+    userRole: String!
+  }
+
+  input AcceptInvitationInput {
+    invitationToken: ID!
+    password: String!
+  }
+
   input CreateLocationInput {
     name: String!
     temp: TempType!
@@ -244,6 +274,10 @@ export const typeDefs = `#graphql
     # Users
     getUsers: [User!]!
 
+    # Invitations
+    getInvitations: [Invitation!]!
+    getInvitationByToken(invitationToken: ID!): Invitation
+
     # Clinic
     getClinic: Clinic!
   }
@@ -253,6 +287,12 @@ export const typeDefs = `#graphql
     signUp(input: SignUpInput!): AuthPayload!
     signIn(input: SignInInput!): AuthPayload!
     inviteUser(input: InviteUserInput!): User!
+
+    # Invitations
+    sendInvitation(input: SendInvitationInput!): Invitation!
+    acceptInvitation(input: AcceptInvitationInput!): AuthPayload!
+    resendInvitation(invitationId: ID!): Invitation!
+    cancelInvitation(invitationId: ID!): Boolean!
 
     # Locations
     createLocation(input: CreateLocationInput!): Location!

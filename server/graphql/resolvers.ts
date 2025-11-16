@@ -5,6 +5,7 @@ import * as drugService from '../services/drugService';
 import * as unitService from '../services/unitService';
 import * as transactionService from '../services/transactionService';
 import * as locationService from '../services/locationService';
+import { invitationService } from '../services/invitationService';
 import { supabaseServer } from '../utils/supabase';
 
 // Helper to require authentication
@@ -135,6 +136,17 @@ export const resolvers = {
       return authService.getUsersByClinicId(clinic.clinicId);
     },
 
+    // Invitations
+    getInvitations: async (_: unknown, __: unknown, context: GraphQLContext) => {
+      requireRole(context, ['superadmin', 'admin']);
+      const { clinic } = requireAuth(context);
+      return invitationService.getInvitations(clinic.clinicId);
+    },
+
+    getInvitationByToken: async (_: unknown, { invitationToken }: { invitationToken: string }) => {
+      return invitationService.getInvitationByToken(invitationToken);
+    },
+
     // Clinic
     getClinic: async (_: unknown, __: unknown, context: GraphQLContext) => {
       const { clinic } = requireAuth(context);
@@ -160,6 +172,57 @@ export const resolvers = {
       requireRole(context, ['superadmin', 'admin']);
       const { clinic } = requireAuth(context);
       return authService.inviteUser(input.email, input.username, input.userRole, clinic.clinicId);
+    },
+
+    // Invitations
+    sendInvitation: async (
+      _: unknown,
+      { input }: { input: { email: string; userRole: string } },
+      context: GraphQLContext
+    ) => {
+      requireRole(context, ['superadmin', 'admin']);
+      const { user, clinic } = requireAuth(context);
+      return invitationService.sendInvitation({
+        email: input.email,
+        userRole: input.userRole,
+        clinicId: clinic.clinicId,
+        invitedBy: user.userId,
+      });
+    },
+
+    acceptInvitation: async (
+      _: unknown,
+      { input }: { input: { invitationToken: string; password: string } }
+    ) => {
+      const result = await invitationService.acceptInvitation({
+        invitationToken: input.invitationToken,
+        password: input.password,
+      });
+      return {
+        token: result.token,
+        user: result.user,
+        clinic: result.clinic,
+      };
+    },
+
+    resendInvitation: async (
+      _: unknown,
+      { invitationId }: { invitationId: string },
+      context: GraphQLContext
+    ) => {
+      requireRole(context, ['superadmin', 'admin']);
+      const { clinic } = requireAuth(context);
+      return invitationService.resendInvitation(invitationId, clinic.clinicId);
+    },
+
+    cancelInvitation: async (
+      _: unknown,
+      { invitationId }: { invitationId: string },
+      context: GraphQLContext
+    ) => {
+      requireRole(context, ['superadmin', 'admin']);
+      const { clinic } = requireAuth(context);
+      return invitationService.cancelInvitation(invitationId, clinic.clinicId);
     },
 
     // Locations
