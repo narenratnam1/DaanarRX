@@ -19,6 +19,7 @@ import {
 import { DateInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { AppShell } from '../../components/layout/AppShell';
+import { PageHeader } from '../../components/PageHeader';
 import { QRCodeSVG } from 'qrcode.react';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
 import { IconQrcode } from '@tabler/icons-react';
@@ -286,12 +287,7 @@ export default function CheckInPage() {
   return (
     <AppShell>
       <Stack gap="xl">
-        <div>
-          <Title order={1}>Check In</Title>
-          <Text c="dimmed" size="sm">
-            Add new medications to inventory
-          </Text>
-        </div>
+        <PageHeader title="Check In" description="Add new medications to inventory" />
 
         <Stepper active={activeStep} onStepClick={setActiveStep}>
           <Stepper.Step label="Create Lot" description="Donation source">

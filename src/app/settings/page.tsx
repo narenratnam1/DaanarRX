@@ -20,6 +20,7 @@ import {
 import { IconMail, IconTrash, IconCopy } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { AppShell } from '../../components/layout/AppShell';
+import { PageHeader } from '../../components/PageHeader';
 import { GetUsersResponse, UserData } from '../../types/graphql';
 
 const GET_USERS = gql`
@@ -242,14 +243,9 @@ export default function SettingsPage() {
   return (
     <AppShell>
       <Stack gap="xl">
-        <Group justify="apart">
-          <div>
-            <Title order={1}>Settings</Title>
-            <Text c="dimmed" size="sm">
-              Manage users and clinic configuration
-            </Text>
-          </div>
-          <Button onClick={() => setModalOpened(true)} size="md">
+        <Group justify="space-between" align="flex-start">
+          <PageHeader title="Settings" description="Manage users and clinic configuration" showBackButton={true} />
+          <Button onClick={() => setModalOpened(true)} size="md" mt={4}>
             Send Invitation
           </Button>
         </Group>

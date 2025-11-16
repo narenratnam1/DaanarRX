@@ -16,6 +16,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AppShell } from '../../components/layout/AppShell';
+import { PageHeader } from '../../components/PageHeader';
 import { GetLocationsResponse, LocationData } from '../../types/graphql';
 
 const GET_LOCATIONS = gql`
@@ -170,14 +171,9 @@ export default function AdminPage() {
   return (
     <AppShell>
       <Stack gap="xl">
-        <Group justify="apart">
-          <div>
-            <Title order={1}>Admin</Title>
-            <Text c="dimmed" size="sm">
-              Manage locations and clinic settings
-            </Text>
-          </div>
-          <Button onClick={openCreateModal}>Create Location</Button>
+        <Group justify="space-between" align="flex-start">
+          <PageHeader title="Admin" description="Manage locations and clinic settings" showBackButton={true} />
+          <Button onClick={openCreateModal} mt={4}>Create Location</Button>
         </Group>
 
         <Card shadow="sm" padding="lg" radius="md" withBorder>

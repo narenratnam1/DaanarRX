@@ -17,6 +17,7 @@ import {
   Modal,
 } from '@mantine/core';
 import { AppShell } from '../../components/layout/AppShell';
+import { PageHeader } from '../../components/PageHeader';
 import { GetUnitsResponse, UnitData, GetTransactionsResponse, TransactionData } from '../../types/graphql';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -89,12 +90,7 @@ export default function InventoryPage() {
   return (
     <AppShell>
       <Stack gap="xl">
-        <div>
-          <Title order={1}>Inventory</Title>
-          <Text c="dimmed" size="sm">
-            View and manage all units
-          </Text>
-        </div>
+        <PageHeader title="Inventory" description="View and manage all units" />
 
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <TextInput

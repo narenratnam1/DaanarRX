@@ -18,6 +18,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AppShell } from '../../components/layout/AppShell';
+import { PageHeader } from '../../components/PageHeader';
 import { QRScanner } from '../../components/QRScanner';
 import { GetUnitResponse, SearchUnitsResponse, UnitData } from '../../types/graphql';
 import { IconQrcode } from '@tabler/icons-react';
@@ -193,12 +194,7 @@ function CheckOutContent() {
   return (
     <AppShell>
       <Stack gap="xl">
-        <div>
-          <Title order={1}>Check Out</Title>
-          <Text c="dimmed" size="sm">
-            Dispense medications to patients
-          </Text>
-        </div>
+        <PageHeader title="Check Out" description="Dispense medications to patients" />
 
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Stack>

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
-import { AppShell as MantineAppShell, Burger, Group, NavLink, Text, Button, Loader, Center, ActionIcon } from '@mantine/core';
+import { AppShell as MantineAppShell, Burger, Group, NavLink, Text, Button, Loader, Center } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { RootState } from '../../store';
 import { restoreAuth, logout } from '../../store/authSlice';
@@ -18,7 +18,6 @@ import {
   IconSettings,
   IconLogout,
   IconLocation,
-  IconArrowLeft,
 } from '@tabler/icons-react';
 
 interface AppShellProps {
@@ -28,7 +27,6 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const [opened, { toggle }] = useDisclosure();
   const router = useRouter();
-  const pathname = usePathname();
   const dispatch = useDispatch();
   const { user, clinic } = useSelector((state: RootState) => state.auth);
   const { isAuthenticated, hasHydrated } = useAuth();
@@ -46,13 +44,6 @@ export function AppShell({ children }: AppShellProps) {
     router.push(href);
     if (opened) toggle();
   };
-
-  const handleBack = () => {
-    router.back();
-  };
-
-  // Don't show back button on home page
-  const showBackButton = pathname !== '/';
 
   if (!hasHydrated) {
     return (
@@ -125,26 +116,7 @@ export function AppShell({ children }: AppShellProps) {
         ))}
       </MantineAppShell.Navbar>
 
-      <MantineAppShell.Main style={{ position: 'relative' }}>
-        {showBackButton && (
-          <ActionIcon
-            variant="filled"
-            color="blue"
-            size="lg"
-            onClick={handleBack}
-            aria-label="Go back"
-            style={{
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              zIndex: 100,
-            }}
-          >
-            <IconArrowLeft size={20} />
-          </ActionIcon>
-        )}
-        {children}
-      </MantineAppShell.Main>
+      <MantineAppShell.Main>{children}</MantineAppShell.Main>
     </MantineAppShell>
   );
 }

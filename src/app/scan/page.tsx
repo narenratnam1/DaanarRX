@@ -15,6 +15,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AppShell } from '../../components/layout/AppShell';
+import { PageHeader } from '../../components/PageHeader';
 import { QRScanner } from '../../components/QRScanner';
 import { useRouter } from 'next/navigation';
 import { GetUnitResponse, GetTransactionsResponse, SearchUnitsResponse, UnitData, TransactionData } from '../../types/graphql';
@@ -138,12 +139,7 @@ export default function ScanPage() {
   return (
     <AppShell>
       <Stack gap="xl">
-        <div>
-          <Title order={1}>Scan / Lookup</Title>
-          <Text c="dimmed" size="sm">
-            Quick access to unit information
-          </Text>
-        </div>
+        <PageHeader title="Scan / Lookup" description="Quick access to unit information" />
 
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Stack>

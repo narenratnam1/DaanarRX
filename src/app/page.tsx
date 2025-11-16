@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Card, 
   Text, 
-  Title, 
+  Title,
   Group, 
   Stack, 
   Loader, 
@@ -29,6 +29,7 @@ import {
   IconChevronRight,
 } from '@tabler/icons-react';
 import { AppShell } from '../components/layout/AppShell';
+import { PageHeader } from '../components/PageHeader';
 
 const GET_DASHBOARD_STATS = gql`
   query GetDashboardStats {
@@ -105,12 +106,7 @@ export default function HomePage() {
   return (
     <AppShell>
       <Stack gap="xl">
-        <div>
-          <Title order={1}>Dashboard</Title>
-          <Text c="dimmed" size="sm">
-            Overview of your clinic&apos;s inventory
-          </Text>
-        </div>
+        <PageHeader title="Dashboard" description="Overview of your clinic's inventory" showBackButton={false} />
 
         {/* Compact Stats Bar */}
         {data && (

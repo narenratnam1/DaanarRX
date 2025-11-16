@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useQuery, gql } from '@apollo/client';
 import {
   Stack,
-  Title,
   Text,
   Card,
   Table,
@@ -16,6 +15,7 @@ import {
   Center,
 } from '@mantine/core';
 import { AppShell } from '../../components/layout/AppShell';
+import { PageHeader } from '../../components/PageHeader';
 import { GetTransactionsResponse, TransactionData } from '../../types/graphql';
 
 const GET_TRANSACTIONS = gql`
@@ -51,12 +51,7 @@ export default function ReportsPage() {
   return (
     <AppShell>
       <Stack gap="xl">
-        <div>
-          <Title order={1}>Reports</Title>
-          <Text c="dimmed" size="sm">
-            Transaction logs and audit trail
-          </Text>
-        </div>
+        <PageHeader title="Reports" description="Transaction logs and audit trail" />
 
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <TextInput
