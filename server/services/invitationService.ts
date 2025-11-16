@@ -132,7 +132,8 @@ export const invitationService = {
       .from('invitations')
       .select(`
         *,
-        invitedByUser:invited_by(user_id, username, email)
+        invitedByUser:invited_by(user_id, username, email),
+        clinic:clinic_id(clinic_id, name, primary_color, secondary_color, logo_url, created_at, updated_at)
       `)
       .eq('clinic_id', clinicId)
       .order('created_at', { ascending: false });
@@ -152,7 +153,8 @@ export const invitationService = {
       .from('invitations')
       .select(`
         *,
-        invitedByUser:invited_by(user_id, username, email)
+        invitedByUser:invited_by(user_id, username, email),
+        clinic:clinic_id(clinic_id, name, primary_color, secondary_color, logo_url, created_at, updated_at)
       `)
       .eq('invitation_token', invitationToken)
       .single();
@@ -327,6 +329,17 @@ export const invitationService = {
       invitationId: data.invitation_id,
       email: data.email,
       clinicId: data.clinic_id,
+      clinic: data.clinic
+        ? {
+            clinicId: data.clinic.clinic_id,
+            name: data.clinic.name,
+            primaryColor: data.clinic.primary_color,
+            secondaryColor: data.clinic.secondary_color,
+            logoUrl: data.clinic.logo_url,
+            createdAt: new Date(data.clinic.created_at),
+            updatedAt: new Date(data.clinic.updated_at),
+          }
+        : undefined,
       invitedBy: data.invited_by,
       invitedByUser: data.invitedByUser
         ? {

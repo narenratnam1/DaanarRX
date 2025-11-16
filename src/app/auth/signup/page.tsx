@@ -74,6 +74,13 @@ const GET_INVITATION_BY_TOKEN = gql`
       userRole
       status
       expiresAt
+      clinic {
+        clinicId
+        name
+        primaryColor
+        secondaryColor
+        logoUrl
+      }
       invitedByUser {
         username
       }
@@ -191,22 +198,34 @@ function AcceptInvitationForm({ invitationToken }: { invitationToken: string }) 
         DaanaRx
       </Title>
       <Text c="dimmed" size="sm" ta="center" mb="xl">
-        Accept your invitation
+        Complete your account setup
       </Text>
 
       <Paper withBorder shadow="md" p={30} radius="md">
         <Alert icon={<IconInfoCircle size={16} />} title="You've been invited!" color="blue" mb="lg">
           <Text size="sm">
-            <strong>{invitation.invitedByUser.username}</strong> has invited you to join as a{' '}
+            <strong>{invitation.invitedByUser.username}</strong> has invited you to join{' '}
+            <strong>{invitation.clinic?.name || 'the clinic'}</strong> as a{' '}
             <strong>{invitation.userRole}</strong>.
-          </Text>
-          <Text size="sm" mt="xs">
-            Email: <strong>{invitation.email}</strong>
           </Text>
         </Alert>
 
         <form onSubmit={handleSubmit}>
           <Stack>
+            <TextInput
+              label="Clinic Name"
+              value={invitation.clinic?.name || ''}
+              disabled
+              description="You're joining this clinic"
+            />
+
+            <TextInput
+              label="Email"
+              value={invitation.email}
+              disabled
+              description="Your account email address"
+            />
+
             <PasswordInput
               label="Create Password"
               placeholder="Choose a secure password"
@@ -216,12 +235,12 @@ function AcceptInvitationForm({ invitationToken }: { invitationToken: string }) 
               description="Choose a strong password to secure your account"
             />
 
-            <Button type="submit" fullWidth loading={loading}>
-              Accept Invitation & Create Account
+            <Button type="submit" fullWidth loading={loading} mt="md">
+              Complete Sign Up
             </Button>
 
             <Text size="xs" c="dimmed" ta="center">
-              By accepting this invitation, you agree to join the clinic and follow their policies.
+              By signing up, you agree to join the clinic and follow their policies.
             </Text>
           </Stack>
         </form>

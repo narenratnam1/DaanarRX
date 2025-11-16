@@ -26,6 +26,7 @@ export const typeDefs = `#graphql
     invitationId: ID!
     email: String!
     clinicId: ID!
+    clinic: Clinic!
     invitedBy: ID!
     invitedByUser: User!
     userRole: String!

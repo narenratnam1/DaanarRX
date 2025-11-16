@@ -33,6 +33,7 @@ export interface Invitation {
   invitationId: string;
   email: string;
   clinicId: string;
+  clinic?: Clinic;
   invitedBy: string;
   invitedByUser?: {
     userId: string;
