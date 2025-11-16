@@ -3,7 +3,6 @@
 import { useQuery, gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import { 
-  Grid, 
   Card, 
   Text, 
   Title, 
@@ -100,34 +99,6 @@ function QuickActionCard({ title, description, icon: Icon, color, href }: QuickA
   );
 }
 
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  color,
-}: {
-  title: string;
-  value: number;
-  icon: React.ComponentType<{ size?: string | number }>;
-  color: string;
-}) {
-  return (
-    <Card shadow="sm" padding="lg" radius="md" withBorder>
-      <Stack gap="md">
-        <Group justify="space-between" align="flex-start">
-          <Text c="dimmed" size="sm" fw={500} tt="uppercase">
-            {title}
-          </Text>
-          <ThemeIcon size={44} radius="md" color={color} variant="light">
-            <Icon size={24} />
-          </ThemeIcon>
-        </Group>
-        <Title order={1}>{value}</Title>
-      </Stack>
-    </Card>
-  );
-}
-
 export default function HomePage() {
   const { data, loading, error } = useQuery(GET_DASHBOARD_STATS);
 
@@ -141,65 +112,84 @@ export default function HomePage() {
           </Text>
         </div>
 
+        {/* Compact Stats Bar */}
+        {data && (
+          <Card 
+            shadow="sm" 
+            padding="md" 
+            radius="md" 
+            withBorder
+            style={{ 
+              position: 'sticky', 
+              top: 0, 
+              zIndex: 100,
+              backgroundColor: 'var(--mantine-color-body)'
+            }}
+          >
+            <Group justify="space-between" wrap="wrap" gap="md">
+              <Group gap="xs">
+                <ThemeIcon size={32} radius="md" color="blue" variant="light">
+                  <IconPackage size={18} />
+                </ThemeIcon>
+                <div>
+                  <Text size="xs" c="dimmed">Total</Text>
+                  <Text size="lg" fw={700}>{data.getDashboardStats.totalUnits}</Text>
+                </div>
+              </Group>
+
+              <Group gap="xs">
+                <ThemeIcon size={32} radius="md" color="orange" variant="light">
+                  <IconAlertTriangle size={18} />
+                </ThemeIcon>
+                <div>
+                  <Text size="xs" c="dimmed">Expiring</Text>
+                  <Text size="lg" fw={700}>{data.getDashboardStats.unitsExpiringSoon}</Text>
+                </div>
+              </Group>
+
+              <Group gap="xs">
+                <ThemeIcon size={32} radius="md" color="red" variant="light">
+                  <IconExclamationCircle size={18} />
+                </ThemeIcon>
+                <div>
+                  <Text size="xs" c="dimmed">Low Stock</Text>
+                  <Text size="lg" fw={700}>{data.getDashboardStats.lowStockAlerts}</Text>
+                </div>
+              </Group>
+
+              <Group gap="xs">
+                <ThemeIcon size={32} radius="md" color="green" variant="light">
+                  <IconArrowUp size={18} />
+                </ThemeIcon>
+                <div>
+                  <Text size="xs" c="dimmed">Check-ins</Text>
+                  <Text size="lg" fw={700}>{data.getDashboardStats.recentCheckIns}</Text>
+                </div>
+              </Group>
+
+              <Group gap="xs">
+                <ThemeIcon size={32} radius="md" color="teal" variant="light">
+                  <IconArrowDown size={18} />
+                </ThemeIcon>
+                <div>
+                  <Text size="xs" c="dimmed">Check-outs</Text>
+                  <Text size="lg" fw={700}>{data.getDashboardStats.recentCheckOuts}</Text>
+                </div>
+              </Group>
+            </Group>
+          </Card>
+        )}
+
         {loading && (
-          <Center h={300}>
+          <Center h={200}>
             <Loader size="lg" />
           </Center>
         )}
 
         {error && (
-          <Center h={300}>
+          <Center h={200}>
             <Text c="red">Error loading dashboard: {error.message}</Text>
           </Center>
-        )}
-
-        {data && (
-          <Grid>
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-              <StatCard
-                title="Total Units"
-                value={data.getDashboardStats.totalUnits}
-                icon={IconPackage}
-                color="blue"
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-              <StatCard
-                title="Expiring Soon"
-                value={data.getDashboardStats.unitsExpiringSoon}
-                icon={IconAlertTriangle}
-                color="orange"
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-              <StatCard
-                title="Low Stock Alerts"
-                value={data.getDashboardStats.lowStockAlerts}
-                icon={IconExclamationCircle}
-                color="red"
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-              <StatCard
-                title="Recent Check-Ins (7d)"
-                value={data.getDashboardStats.recentCheckIns}
-                icon={IconArrowUp}
-                color="green"
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-              <StatCard
-                title="Recent Check-Outs (7d)"
-                value={data.getDashboardStats.recentCheckOuts}
-                icon={IconArrowDown}
-                color="teal"
-              />
-            </Grid.Col>
-          </Grid>
         )}
 
         <Box mt="xl">
