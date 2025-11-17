@@ -518,51 +518,61 @@ export default function CheckInPage() {
                   />
 
                   {showDropdown && searchResults.length > 0 && (
-                    <Card 
-                      withBorder 
-                      shadow="md"
-                      style={{ 
-                        position: 'absolute', 
-                        zIndex: 1000, 
+                    <div
+                      style={{
+                        position: 'absolute',
+                        zIndex: 1000,
                         width: '100%',
-                        maxHeight: '400px',
-                        overflowY: 'scroll',
                         marginTop: '4px',
-                        backgroundColor: 'white',
-                        scrollbarWidth: 'thin',
                       }}
                     >
-                      <Stack gap="xs" p="xs">
-                        {searchResults.length > 5 && (
-                          <Text size="xs" c="dimmed" ta="center" pb="xs">
-                            Showing {searchResults.length} results - Scroll for more
-                          </Text>
-                        )}
-                        {searchResults.map((drug, index) => (
-                          <Card
-                            key={index}
-                            padding="sm"
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => handleSelectDrug(drug)}
-                            withBorder
-                            bg={drug.inInventory ? 'blue.0' : 'white'}
-                          >
-                            <Group justify="space-between">
-                              <div>
-                                <Text fw={600} size="sm">{drug.medicationName}</Text>
-                                <Text size="xs" c="dimmed">
-                                  {drug.strength} {drug.strengthUnit} - {drug.form}
-                                </Text>
-                                <Text size="xs" c="blue">NDC: {drug.ndcId}</Text>
-                              </div>
-                              {drug.inInventory && (
-                                <Text size="xs" c="blue" fw={700}>In Stock</Text>
-                              )}
-                            </Group>
-                          </Card>
-                        ))}
-                      </Stack>
-                    </Card>
+                      <Card 
+                        withBorder 
+                        shadow="md"
+                        style={{ 
+                          backgroundColor: 'white',
+                        }}
+                      >
+                        <div
+                          style={{
+                            maxHeight: '400px',
+                            overflowY: 'auto',
+                            overflowX: 'hidden',
+                          }}
+                        >
+                          <Stack gap="xs">
+                            {searchResults.length > 5 && (
+                              <Text size="xs" c="dimmed" ta="center" pb="xs" style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}>
+                                Showing {searchResults.length} results - Scroll for more ↓
+                              </Text>
+                            )}
+                            {searchResults.map((drug, index) => (
+                              <Card
+                                key={index}
+                                padding="sm"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => handleSelectDrug(drug)}
+                                withBorder
+                                bg={drug.inInventory ? 'blue.0' : 'white'}
+                              >
+                                <Group justify="space-between">
+                                  <div>
+                                    <Text fw={600} size="sm">{drug.medicationName}</Text>
+                                    <Text size="xs" c="dimmed">
+                                      {drug.strength} {drug.strengthUnit} - {drug.form}
+                                    </Text>
+                                    <Text size="xs" c="blue">NDC: {drug.ndcId}</Text>
+                                  </div>
+                                  {drug.inInventory && (
+                                    <Text size="xs" c="blue" fw={700}>In Stock</Text>
+                                  )}
+                                </Group>
+                              </Card>
+                            ))}
+                          </Stack>
+                        </div>
+                      </Card>
+                    </div>
                   )}
                 </div>
 
