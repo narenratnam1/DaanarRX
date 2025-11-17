@@ -15,6 +15,7 @@ import {
   Loader,
   Center,
   Modal,
+  Button,
 } from '@mantine/core';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/PageHeader';
@@ -64,11 +65,21 @@ const GET_TRANSACTIONS = gql`
 export default function InventoryPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('all');
   const [selectedUnit, setSelectedUnit] = useState<UnitData | null>(null);
   const [modalOpened, setModalOpened] = useState(false);
 
+  // Combine search text with filter type
+  const getSearchQuery = () => {
+    let query = search;
+    if (filterType !== 'all') {
+      query = query ? `${query} ${filterType}` : filterType;
+    }
+    return query || undefined;
+  };
+
   const { data, loading } = useQuery<GetUnitsResponse>(GET_UNITS, {
-    variables: { page, pageSize: 20, search: search || undefined },
+    variables: { page, pageSize: 20, search: getSearchQuery() },
   });
 
   const [getTransactions, { data: transactionsData, loading: loadingTransactions }] =
@@ -93,15 +104,82 @@ export default function InventoryPage() {
         <PageHeader title="Inventory" description="View and manage all units" />
 
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <TextInput
-            placeholder="Search inventory (medication, NDC, source, lot, quantity, notes...)"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            mb="md"
-          />
+          <Stack gap="md">
+            <TextInput
+              placeholder="Search inventory (medication, NDC, source, lot, quantity, notes...)"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
+
+            <Group gap="xs">
+              <Text size="sm" fw={500} c="dimmed">Filter by type:</Text>
+              <Button.Group>
+                <Button
+                  variant={filterType === 'all' ? 'filled' : 'default'}
+                  size="xs"
+                  onClick={() => {
+                    setFilterType('all');
+                    setPage(1);
+                  }}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={filterType === 'tablet' ? 'filled' : 'default'}
+                  size="xs"
+                  onClick={() => {
+                    setFilterType('tablet');
+                    setPage(1);
+                  }}
+                >
+                  Tablet
+                </Button>
+                <Button
+                  variant={filterType === 'capsule' ? 'filled' : 'default'}
+                  size="xs"
+                  onClick={() => {
+                    setFilterType('capsule');
+                    setPage(1);
+                  }}
+                >
+                  Capsule
+                </Button>
+                <Button
+                  variant={filterType === 'liquid' ? 'filled' : 'default'}
+                  size="xs"
+                  onClick={() => {
+                    setFilterType('liquid');
+                    setPage(1);
+                  }}
+                >
+                  Liquid
+                </Button>
+                <Button
+                  variant={filterType === 'injection' ? 'filled' : 'default'}
+                  size="xs"
+                  onClick={() => {
+                    setFilterType('injection');
+                    setPage(1);
+                  }}
+                >
+                  Injection
+                </Button>
+                <Button
+                  variant={filterType === 'cream' ? 'filled' : 'default'}
+                  size="xs"
+                  onClick={() => {
+                    setFilterType('cream');
+                    setPage(1);
+                  }}
+                >
+                  Cream/Ointment
+                </Button>
+              </Button.Group>
+            </Group>
+          </Stack>
 
           {loading ? (
             <Center h={200}>
