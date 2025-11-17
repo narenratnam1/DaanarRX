@@ -143,17 +143,62 @@ export default function CheckInPage() {
   const hasLocations = locationsData?.getLocations && locationsData.getLocations.length > 0;
   const isAdmin = user?.userRole === 'admin' || user?.userRole === 'superadmin';
 
+  // Step validation functions
+  const isStep1Valid = () => {
+    if (useExistingLot) {
+      return selectedLotId !== '';
+    }
+    return lotSource.trim() !== '' && selectedLocationId !== '';
+  };
+
+  const isStep2Valid = () => {
+    if (selectedDrug) {
+      return true;
+    }
+    // Check manual drug entry
+    return (
+      manualDrug.medicationName.trim() !== '' &&
+      manualDrug.genericName.trim() !== '' &&
+      manualDrug.strength > 0 &&
+      manualDrug.ndcId.trim() !== ''
+    );
+  };
+
+  const isStep3Valid = () => {
+    return (
+      totalQuantity > 0 &&
+      availableQuantity > 0 &&
+      availableQuantity <= totalQuantity &&
+      expiryDate !== null
+    );
+  };
+
+  const nextStep = () => {
+    if (activeStep === 0 && isStep1Valid()) {
+      setActiveStep(1);
+    } else if (activeStep === 1 && isStep2Valid()) {
+      setActiveStep(2);
+    }
+  };
+
+  const prevStep = () => {
+    if (activeStep > 0) {
+      setActiveStep(activeStep - 1);
+    }
+  };
+
   // Mutations
   const [createLot, { loading: creatingLot }] = useMutation(CREATE_LOT, {
     refetchQueries: [{ query: GET_LOTS }],
     onCompleted: (data) => {
       setSelectedLotId(data.createLot.lotId);
+      setUseExistingLot(true); // Switch to using the newly created lot
       notifications.show({
         title: 'Success',
         message: 'Lot created successfully',
         color: 'green',
       });
-      setActiveStep(1);
+      // Don't auto-advance, let the Next button handle it
     },
     onError: (error) => {
       notifications.show({
@@ -315,7 +360,7 @@ export default function CheckInPage() {
           </Alert>
         )}
 
-        <Stepper active={activeStep} onStepClick={setActiveStep}>
+        <Stepper active={activeStep}>
           <Stepper.Step label="Create Lot" description="Donation source">
             <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
               <Stack>
@@ -380,9 +425,20 @@ export default function CheckInPage() {
                   </>
                 )}
 
-                <Button onClick={handleCreateLot} loading={creatingLot}>
-                  Continue to Drug Search
-                </Button>
+                {!useExistingLot && (
+                  <Button onClick={handleCreateLot} loading={creatingLot}>
+                    Create Lot
+                  </Button>
+                )}
+
+                <Group justify="flex-end" mt="xl">
+                  <Button 
+                    onClick={nextStep} 
+                    disabled={!isStep1Valid()}
+                  >
+                    Next Step
+                  </Button>
+                </Group>
               </Stack>
             </Card>
           </Stepper.Step>
@@ -485,7 +541,20 @@ export default function CheckInPage() {
                   />
                 </Group>
 
-                <Button onClick={() => setActiveStep(2)}>Continue to Unit Details</Button>
+                <Group justify="space-between" mt="xl">
+                  <Button 
+                    variant="default" 
+                    onClick={prevStep}
+                  >
+                    Previous
+                  </Button>
+                  <Button 
+                    onClick={nextStep} 
+                    disabled={!isStep2Valid()}
+                  >
+                    Next Step
+                  </Button>
+                </Group>
               </Stack>
             </Card>
           </Stepper.Step>
@@ -530,9 +599,21 @@ export default function CheckInPage() {
                   onChange={(e) => setUnitNotes(e.target.value)}
                 />
 
-                <Button onClick={handleCreateUnit} loading={creatingUnit}>
-                  Create Unit
-                </Button>
+                <Group justify="space-between" mt="xl">
+                  <Button 
+                    variant="default" 
+                    onClick={prevStep}
+                  >
+                    Previous
+                  </Button>
+                  <Button 
+                    onClick={handleCreateUnit} 
+                    loading={creatingUnit}
+                    disabled={!isStep3Valid()}
+                  >
+                    Create Unit
+                  </Button>
+                </Group>
               </Stack>
             </Card>
           </Stepper.Step>
