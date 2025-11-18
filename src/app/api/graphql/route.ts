@@ -8,11 +8,12 @@ const server = new ApolloServer({
   resolvers,
   introspection: true,
   formatError: (error) => {
+    const originalError = (error as any).originalError;
     console.error('GraphQL Error:', {
       message: error.message,
       code: error.extensions?.code,
       path: error.path,
-      originalError: error.originalError?.message,
+      originalError: originalError?.message,
       stack: error.stack,
     });
     return {
