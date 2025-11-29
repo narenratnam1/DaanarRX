@@ -164,6 +164,12 @@ export const typeDefs = `#graphql
     check_in
   }
 
+  enum FeedbackType {
+    Feature_Request
+    Bug
+    Other
+  }
+
   input SignUpInput {
     email: String!
     password: String!
@@ -254,9 +260,24 @@ export const typeDefs = `#graphql
     password: String!
   }
 
+  input CreateFeedbackInput {
+    feedbackType: FeedbackType!
+    feedbackMessage: String!
+  }
+
   type EmailCheckResult {
     exists: Boolean!
     message: String!
+  }
+
+  type Feedback {
+    feedbackId: ID!
+    clinicId: ID!
+    userId: ID!
+    feedbackType: FeedbackType!
+    feedbackMessage: String!
+    createdAt: DateTime!
+    updatedAt: DateTime!
   }
 
   type Query {
@@ -334,5 +355,8 @@ export const typeDefs = `#graphql
     # Clinic
     updateClinic(name: String, primaryColor: String, secondaryColor: String): Clinic!
     createClinic(input: CreateClinicInput!): AuthPayload!
+
+    # Feedback
+    createFeedback(input: CreateFeedbackInput!): Feedback!
   }
 `;

@@ -172,3 +172,18 @@ export interface SignUpResponse {
 export interface SignInResponse {
   signIn: AuthPayload;
 }
+
+// Feedback Types
+export interface FeedbackData {
+  feedbackId: string;
+  clinicId: string;
+  userId: string;
+  feedbackType: 'Feature_Request' | 'Bug' | 'Other';
+  feedbackMessage: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFeedbackResponse {
+  createFeedback: FeedbackData;
+}

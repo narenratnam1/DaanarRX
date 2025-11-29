@@ -5,6 +5,7 @@ import * as drugService from '../services/drugService';
 import * as unitService from '../services/unitService';
 import * as transactionService from '../services/transactionService';
 import * as locationService from '../services/locationService';
+import * as feedbackService from '../services/feedbackService';
 import { invitationService } from '../services/invitationService';
 import { supabaseServer } from '../utils/supabase';
 
@@ -391,6 +392,16 @@ export const resolvers = {
     ) => {
       const { user } = requireAuth(context);
       return authService.createClinic(user.userId, input.name, input.password);
+    },
+
+    // Feedback
+    createFeedback: async (
+      _: unknown,
+      { input }: { input: { feedbackType: 'Feature_Request' | 'Bug' | 'Other'; feedbackMessage: string } },
+      context: GraphQLContext
+    ) => {
+      const { user, clinic } = requireAuth(context);
+      return feedbackService.createFeedback(input, user.userId, clinic.clinicId);
     },
   },
 };

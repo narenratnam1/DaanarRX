@@ -5,6 +5,7 @@ export type UserRole = 'superadmin' | 'admin' | 'employee';
 export type TempType = 'fridge' | 'room_temp';
 export type TransactionType = 'adjust' | 'check_out' | 'check_in';
 export type InvitationStatus = 'invited' | 'accepted' | 'expired';
+export type FeedbackType = 'Feature_Request' | 'Bug' | 'Other';
 export type StrengthUnit = string; // mg, g, mcg, etc.
 export type DrugForm = string; // tablet, capsule, liquid, etc.
 
@@ -196,4 +197,19 @@ export interface ModalState {
   isOpen: boolean;
   title?: string;
   content?: React.ReactNode;
+}
+
+export interface Feedback {
+  feedbackId: string;
+  clinicId: string;
+  userId: string;
+  feedbackType: FeedbackType;
+  feedbackMessage: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateFeedbackRequest {
+  feedbackType: FeedbackType;
+  feedbackMessage: string;
 }
