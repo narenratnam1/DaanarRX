@@ -1,6 +1,7 @@
 import { supabaseServer, supabaseAuth } from '../utils/supabase';
 import { generateToken } from '../utils/auth';
 import { User, Clinic, AuthResponse } from '@/types';
+import { emailService } from './emailService';
 
 /**
  * Sign up a new user and create their clinic
@@ -56,6 +57,16 @@ export async function signUp(email: string, password: string, clinicName: string
       userId: user.user_id,
       clinicId: user.clinic_id,
       userRole: user.user_role,
+    });
+
+    // Send welcome email (don't await - send in background)
+    emailService.sendWelcomeEmail({
+      email: user.email,
+      clinicName: clinic.name,
+      username: user.username,
+    }).catch(error => {
+      console.error('Failed to send welcome email:', error);
+      // Log but don't fail the signup
     });
 
     return {

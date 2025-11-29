@@ -1,6 +1,7 @@
 import { supabaseServer, supabaseAuth } from '../utils/supabase';
 import { generateToken } from '../utils/auth';
 import type { Invitation } from '@/types';
+import { emailService } from './emailService';
 
 export interface SendInvitationInput {
   email: string;
@@ -68,7 +69,7 @@ export const invitationService = {
       }
 
       // Send the invitation email
-      await this.sendInvitationEmail(email, updatedInvitation.invitation_token, clinicId);
+      await this.sendInvitationEmail(email, updatedInvitation.invitation_token, clinicId, invitedBy);
 
       return this.formatInvitation(updatedInvitation);
     }
@@ -91,18 +92,16 @@ export const invitationService = {
     }
 
     // Send the invitation email
-    await this.sendInvitationEmail(email, invitation.invitation_token, clinicId);
+    await this.sendInvitationEmail(email, invitation.invitation_token, clinicId, invitedBy);
 
     return this.formatInvitation(invitation);
   },
 
   /**
    * Send invitation email
-   * NOTE: We can't use Supabase's inviteUserByEmail because it creates an auth user immediately.
-   * For now, just log the invitation URL. You can integrate with an email service later.
    */
-  async sendInvitationEmail(email: string, invitationToken: string, clinicId: string): Promise<void> {
-    // Get clinic name for email branding
+  async sendInvitationEmail(email: string, invitationToken: string, clinicId: string, invitedByUserId?: string): Promise<void> {
+    // Get clinic name and invited by user info for email branding
     const { data: clinic } = await supabaseServer
       .from('clinics')
       .select('name')
@@ -111,36 +110,39 @@ export const invitationService = {
 
     const clinicName = clinic?.name || 'DaanaRx';
 
-    // Create a signup link with invitation token
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/signup?invitation=${invitationToken}`;
+    // Get the inviter's username
+    let invitedByUsername = 'Your colleague';
+    if (invitedByUserId) {
+      const { data: inviter } = await supabaseServer
+        .from('users')
+        .select('username')
+        .eq('user_id', invitedByUserId)
+        .single();
 
-    // Log the invitation URL for the admin to share
+      if (inviter) {
+        invitedByUsername = inviter.username;
+      }
+    }
+
+    // Create a signup link with invitation token
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/signup?invitation=${invitationToken}`;
+
+    // Log the invitation URL for debugging
     console.log('\n=================================');
-    console.log('📧 New Invitation Created');
+    console.log('📧 Sending Invitation Email');
     console.log('=================================');
     console.log('To:', email);
     console.log('Clinic:', clinicName);
     console.log('Invitation Link:', inviteUrl);
     console.log('=================================\n');
 
-    // TODO: Integrate with an email service like Resend, SendGrid, or configure Supabase Functions
-    // to send emails without creating auth users.
-    //
-    // Options:
-    // 1. Use Resend.com (easiest):
-    //    const resend = new Resend(process.env.RESEND_API_KEY);
-    //    await resend.emails.send({
-    //      from: 'noreply@yourdomain.com',
-    //      to: email,
-    //      subject: `You've been invited to ${clinicName}`,
-    //      html: `<p>Click here to accept: <a href="${inviteUrl}">${inviteUrl}</a></p>`
-    //    });
-    //
-    // 2. Use SendGrid
-    // 3. Use AWS SES
-    // 4. Use Supabase Edge Functions with a custom email API
-    //
-    // For now, the admin must manually share this link with the user.
+    // Send the email using our email service
+    await emailService.sendInvitationEmail({
+      email,
+      clinicName,
+      invitationUrl: inviteUrl,
+      invitedByUsername,
+    });
   },
 
   /**
@@ -400,7 +402,8 @@ export const invitationService = {
     await this.sendInvitationEmail(
       updatedInvitation.email,
       updatedInvitation.invitation_token,
-      updatedInvitation.clinic_id
+      updatedInvitation.clinic_id,
+      updatedInvitation.invited_by
     );
 
     return this.formatInvitation(updatedInvitation);
