@@ -69,6 +69,9 @@ export interface Lot {
   dateCreated: Date;
   locationId: string;
   clinicId: string;
+  maxCapacity?: number;
+  currentCapacity?: number;
+  availableCapacity?: number | null;
 }
 
 export interface Drug {
@@ -134,6 +137,7 @@ export interface CreateLotRequest {
   source: string;
   note?: string;
   locationId: string;
+  maxCapacity?: number;
 }
 
 export interface CreateUnitRequest {

@@ -14,6 +14,7 @@ import {
   UnstyledButton,
   ThemeIcon,
   SimpleGrid,
+  Badge,
 } from '@mantine/core';
 import {
   IconPackage,
@@ -129,7 +130,9 @@ export default function HomePage() {
                 </ThemeIcon>
                 <div>
                   <Text size="xs" c="dimmed">Total</Text>
-                  <Text size="lg" fw={700}>{data.getDashboardStats.totalUnits}</Text>
+                  <Badge size="lg" color="blue" variant="filled">
+                    {data.getDashboardStats.totalUnits}
+                  </Badge>
                 </div>
               </Group>
 
@@ -139,7 +142,9 @@ export default function HomePage() {
                 </ThemeIcon>
                 <div>
                   <Text size="xs" c="dimmed">Expiring</Text>
-                  <Text size="lg" fw={700}>{data.getDashboardStats.unitsExpiringSoon}</Text>
+                  <Badge size="lg" color="orange" variant="filled">
+                    {data.getDashboardStats.unitsExpiringSoon}
+                  </Badge>
                 </div>
               </Group>
 
@@ -149,7 +154,9 @@ export default function HomePage() {
                 </ThemeIcon>
                 <div>
                   <Text size="xs" c="dimmed">Low Stock</Text>
-                  <Text size="lg" fw={700}>{data.getDashboardStats.lowStockAlerts}</Text>
+                  <Badge size="lg" color="red" variant="filled">
+                    {data.getDashboardStats.lowStockAlerts}
+                  </Badge>
                 </div>
               </Group>
 
@@ -159,7 +166,9 @@ export default function HomePage() {
                 </ThemeIcon>
                 <div>
                   <Text size="xs" c="dimmed">Check-ins</Text>
-                  <Text size="lg" fw={700}>{data.getDashboardStats.recentCheckIns}</Text>
+                  <Badge size="lg" color="green" variant="filled">
+                    {data.getDashboardStats.recentCheckIns}
+                  </Badge>
                 </div>
               </Group>
 
@@ -169,7 +178,9 @@ export default function HomePage() {
                 </ThemeIcon>
                 <div>
                   <Text size="xs" c="dimmed">Check-outs</Text>
-                  <Text size="lg" fw={700}>{data.getDashboardStats.recentCheckOuts}</Text>
+                  <Badge size="lg" color="teal" variant="filled">
+                    {data.getDashboardStats.recentCheckOuts}
+                  </Badge>
                 </div>
               </Group>
             </Group>

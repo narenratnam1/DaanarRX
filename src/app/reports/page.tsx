@@ -276,12 +276,16 @@ export default function ReportsPage() {
                       {selectedTransaction.type.replace('_', ' ').toUpperCase()}
                     </Badge>
                   </Group>
-                  <Group justify="space-between">
-                    <Text size="sm" c="dimmed">Quantity:</Text>
-                    <Text size="sm" fw={600}>
-                      {selectedTransaction.type === 'check_out' ? '-' : '+'}{selectedTransaction.quantity}
-                    </Text>
-                  </Group>
+                    <Group justify="space-between">
+                      <Text size="sm" c="dimmed">Quantity:</Text>
+                      <Badge 
+                        color={selectedTransaction.type === 'check_out' ? 'red' : 'green'} 
+                        size="lg"
+                        variant="filled"
+                      >
+                        {selectedTransaction.type === 'check_out' ? '-' : '+'}{selectedTransaction.quantity}
+                      </Badge>
+                    </Group>
                   <Group justify="space-between">
                     <Text size="sm" c="dimmed">Performed By:</Text>
                     <Text size="sm">{selectedTransaction.user?.username || 'Unknown'}</Text>
@@ -351,9 +355,9 @@ export default function ReportsPage() {
                     </Group>
                     <Group justify="space-between">
                       <Text size="sm" c="dimmed">Strength:</Text>
-                      <Text size="sm">
+                      <Badge color="gray" variant="outline" size="md">
                         {selectedTransaction.unit.drug.strength} {selectedTransaction.unit.drug.strengthUnit}
-                      </Text>
+                      </Badge>
                     </Group>
                     <Group justify="space-between">
                       <Text size="sm" c="dimmed">Form:</Text>
@@ -370,9 +374,12 @@ export default function ReportsPage() {
                     </Group>
                     <Group justify="space-between">
                       <Text size="sm" c="dimmed">Current Stock:</Text>
-                      <Text size="sm">
+                      <Badge 
+                        color={selectedTransaction.unit.availableQuantity > 0 ? 'green' : 'gray'} 
+                        size="md"
+                      >
                         {selectedTransaction.unit.availableQuantity} / {selectedTransaction.unit.totalQuantity}
-                      </Text>
+                      </Badge>
                     </Group>
                     <Group justify="space-between">
                       <Text size="sm" c="dimmed">Expiry Date:</Text>

@@ -28,6 +28,9 @@ import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/PageHeader';
 import { QRCodeSVG } from 'qrcode.react';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
+import { CapacityBadge } from '../../components/CapacityBadge';
+import { LotCapacityAlert } from '../../components/LotCapacityAlert';
+import { LotCapacityStatus, useCapacityValidation } from '../../components/LotCapacityStatus';
 import { IconQrcode } from '@tabler/icons-react';
 import { useReactToPrint } from 'react-to-print';
 import {
@@ -56,6 +59,9 @@ const GET_LOTS = gql`
       source
       locationId
       dateCreated
+      maxCapacity
+      currentCapacity
+      availableCapacity
     }
   }
 `;
@@ -66,6 +72,7 @@ const CREATE_LOT = gql`
       lotId
       source
       note
+      maxCapacity
     }
   }
 `;
@@ -108,8 +115,10 @@ export default function CheckInPage() {
   // Lot creation state
   const [lotSource, setLotSource] = useState('');
   const [lotNote, setLotNote] = useState('');
+  const [lotMaxCapacity, setLotMaxCapacity] = useState<number | undefined>(undefined);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [selectedLotId, setSelectedLotId] = useState<string>('');
+  const [selectedLot, setSelectedLot] = useState<LotData | null>(null);
   const [useExistingLot, setUseExistingLot] = useState(false);
 
   // Unified drug search state
@@ -195,10 +204,16 @@ export default function CheckInPage() {
   };
 
   const isStep3Valid = () => {
-    return (
-      totalQuantity > 0 &&
-      expiryDate !== null
-    );
+    if (totalQuantity <= 0 || expiryDate === null) {
+      return false;
+    }
+
+    // If the lot has a max capacity, check if we would exceed it
+    if (selectedLot?.maxCapacity && selectedLot.currentCapacity !== undefined) {
+      return useCapacityValidation(selectedLot.currentCapacity, selectedLot.maxCapacity, totalQuantity);
+    }
+
+    return true;
   };
 
   const nextStep = () => {
@@ -279,6 +294,7 @@ export default function CheckInPage() {
     refetchQueries: [{ query: GET_LOTS }],
     onCompleted: (data) => {
       setSelectedLotId(data.createLot.lotId);
+      setSelectedLot(data.createLot);
       notifications.show({
         title: 'Success',
         message: 'Lot created successfully',
@@ -336,6 +352,7 @@ export default function CheckInPage() {
           source: lotSource,
           note: lotNote,
           locationId: selectedLocationId,
+          maxCapacity: lotMaxCapacity,
         },
       },
     });
@@ -378,8 +395,10 @@ export default function CheckInPage() {
     setActiveStep(0);
     setLotSource('');
     setLotNote('');
+    setLotMaxCapacity(undefined);
     setSelectedLocationId('');
     setSelectedLotId('');
+    setSelectedLot(null);
     setUseExistingLot(false);
     setSearchInput('');
     setSelectedDrug(null);
@@ -440,18 +459,38 @@ export default function CheckInPage() {
                 </Group>
 
                 {useExistingLot ? (
-                  <Select
-                    label="Select Lot"
-                    placeholder="Choose existing lot"
-                    data={
-                      lotsData?.getLots.map((lot: LotData) => ({
-                        value: lot.lotId,
-                        label: `${lot.source} - ${new Date(lot.dateCreated).toLocaleDateString()}`,
-                      })) || []
-                    }
-                    value={selectedLotId}
-                    onChange={(value) => setSelectedLotId(value || '')}
-                  />
+                  <>
+                    <Select
+                      label="Select Lot"
+                      placeholder="Choose existing lot"
+                      data={
+                        lotsData?.getLots.map((lot: LotData) => {
+                          let label = `${lot.source} - ${new Date(lot.dateCreated).toLocaleDateString()}`;
+                          if (lot.maxCapacity && lot.currentCapacity !== undefined) {
+                            const available = lot.maxCapacity - lot.currentCapacity;
+                            label += ` (${lot.currentCapacity}/${lot.maxCapacity}, ${available} available)`;
+                          }
+                          return {
+                            value: lot.lotId,
+                            label,
+                          };
+                        }) || []
+                      }
+                      value={selectedLotId}
+                      onChange={(value) => {
+                        setSelectedLotId(value || '');
+                        const lot = lotsData?.getLots.find((l: LotData) => l.lotId === value);
+                        setSelectedLot(lot || null);
+                      }}
+                    />
+                    {selectedLot && selectedLot.maxCapacity && selectedLot.currentCapacity !== undefined && (
+                      <LotCapacityAlert
+                        currentCapacity={selectedLot.currentCapacity}
+                        maxCapacity={selectedLot.maxCapacity}
+                        showAvailable
+                      />
+                    )}
+                  </>
                 ) : (
                   <>
                     <TextInput
@@ -474,6 +513,15 @@ export default function CheckInPage() {
                       }
                       value={selectedLocationId}
                       onChange={(value) => setSelectedLocationId(value || '')}
+                    />
+
+                    <NumberInput
+                      label="Maximum Capacity (Optional)"
+                      placeholder="e.g., 100"
+                      description="Maximum number of units that can be stored in this lot"
+                      min={1}
+                      value={lotMaxCapacity}
+                      onChange={(value) => setLotMaxCapacity(value as number | undefined)}
                     />
 
                     <Textarea
@@ -733,6 +781,15 @@ export default function CheckInPage() {
           <Stepper.Step label="Create Unit" description="Quantity and expiry">
             <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
               <Stack>
+                {selectedLot && selectedLot.maxCapacity && selectedLot.currentCapacity !== undefined && (
+                  <LotCapacityAlert
+                    currentCapacity={selectedLot.currentCapacity}
+                    maxCapacity={selectedLot.maxCapacity}
+                    showAvailable
+                    variant="info"
+                  />
+                )}
+
                 <NumberInput
                   label="Total Quantity"
                   placeholder="100"
@@ -745,6 +802,14 @@ export default function CheckInPage() {
                     setAvailableQuantity(num);
                   }}
                 />
+
+                {selectedLot && selectedLot.maxCapacity && selectedLot.currentCapacity !== undefined && totalQuantity > 0 && (
+                  <LotCapacityStatus
+                    currentCapacity={selectedLot.currentCapacity}
+                    maxCapacity={selectedLot.maxCapacity}
+                    addingQuantity={totalQuantity}
+                  />
+                )}
 
                 <DateInput
                   label="Expiry Date"

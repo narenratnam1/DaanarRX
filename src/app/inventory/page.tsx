@@ -631,9 +631,9 @@ export default function InventoryPage() {
                   </Group>
                   <Group justify="space-between">
                     <Text fw={500}>Strength:</Text>
-                    <Text>
+                    <Badge color="gray" variant="outline" size="md">
                       {selectedUnit.drug.strength} {selectedUnit.drug.strengthUnit}
-                    </Text>
+                    </Badge>
                   </Group>
                   <Group justify="space-between">
                     <Text fw={500}>Form:</Text>
@@ -646,9 +646,9 @@ export default function InventoryPage() {
                   <Divider my="xs" />
                   <Group justify="space-between">
                     <Text fw={500}>Available / Total:</Text>
-                    <Text>
+                    <Badge color={selectedUnit.availableQuantity > 0 ? 'green' : 'gray'} size="lg">
                       {selectedUnit.availableQuantity} / {selectedUnit.totalQuantity}
-                    </Text>
+                    </Badge>
                   </Group>
                   <Group justify="space-between">
                     <Text fw={500}>Expiry Date:</Text>
@@ -765,12 +765,17 @@ export default function InventoryPage() {
         >
           {quickCheckoutUnit && (
             <Stack>
-              <Text size="sm">
-                <strong>{quickCheckoutUnit.drug.medicationName}</strong>
-              </Text>
-              <Text size="sm" c="dimmed">
-                Available: {quickCheckoutUnit.availableQuantity}
-              </Text>
+              <Stack gap="xs">
+                <Text size="sm">
+                  <strong>{quickCheckoutUnit.drug.medicationName}</strong>
+                </Text>
+                <Group gap="xs">
+                  <Text size="sm" c="dimmed">Available:</Text>
+                  <Badge color="green" size="md">
+                    {quickCheckoutUnit.availableQuantity}
+                  </Badge>
+                </Group>
+              </Stack>
               <TextInput
                 label="Quantity to checkout"
                 type="number"

@@ -53,3 +53,4 @@ echo "2. Redeploy your Vercel frontend"
 echo ""
 echo "3. Test the full application!"
 
+

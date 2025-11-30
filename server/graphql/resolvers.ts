@@ -317,11 +317,11 @@ export const resolvers = {
     // Lots
     createLot: async (
       _: unknown,
-      { input }: { input: { source: string; note?: string; locationId: string } },
+      { input }: { input: { source: string; note?: string; locationId: string; maxCapacity?: number } },
       context: GraphQLContext
     ) => {
       const { clinic } = requireAuth(context);
-      return locationService.createLot(input.source, input.locationId, clinic.clinicId, input.note);
+      return locationService.createLot(input.source, input.locationId, clinic.clinicId, input.note, input.maxCapacity);
     },
 
     // Units

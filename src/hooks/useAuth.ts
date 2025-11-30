@@ -5,12 +5,13 @@ import { logout, refreshActivity, RootState } from '../store/authSlice';
 
 const ACTIVITY_CHECK_INTERVAL = 60 * 1000; // Check every minute
 const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+const TOKEN_EXPIRY_CHECK_INTERVAL = 30 * 1000; // Check token expiry every 30 seconds
 
 export function useAuth() {
   const dispatch = useDispatch();
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, lastActivity, hasHydrated } = useSelector(
+  const { isAuthenticated, lastActivity, expiresAt, hasHydrated } = useSelector(
     (state: RootState) => state.auth
   );
 
@@ -38,6 +39,24 @@ export function useAuth() {
     };
   }, [isAuthenticated, hasHydrated, handleActivity]);
 
+  // Check for token expiration
+  useEffect(() => {
+    if (!isAuthenticated || !hasHydrated || !expiresAt) return;
+
+    const checkTokenExpiry = () => {
+      const now = Date.now();
+      
+      if (now >= expiresAt) {
+        dispatch(logout('token_expired'));
+        router.push('/auth/signin?reason=token_expired');
+      }
+    };
+
+    const intervalId = setInterval(checkTokenExpiry, TOKEN_EXPIRY_CHECK_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, hasHydrated, expiresAt, dispatch, router]);
+
   // Check for inactivity timeout
   useEffect(() => {
     if (!isAuthenticated || !hasHydrated || !lastActivity) return;
@@ -47,8 +66,8 @@ export function useAuth() {
       const timeSinceLastActivity = now - lastActivity;
 
       if (timeSinceLastActivity >= INACTIVITY_TIMEOUT) {
-        dispatch(logout());
-        router.push('/auth/signin?timeout=true');
+        dispatch(logout('inactivity'));
+        router.push('/auth/signin?reason=inactivity');
       }
     };
 

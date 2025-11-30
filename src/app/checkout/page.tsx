@@ -305,19 +305,24 @@ function CheckOutContent() {
               </Group>
 
               <Card withBorder p="sm" bg="blue.0">
-                <Text fw={700} size="lg">
-                  {selectedUnit.drug.medicationName}
-                </Text>
-                <Text size="sm" c="dimmed">
-                  Generic: {selectedUnit.drug.genericName}
-                </Text>
-                <Text size="sm">
-                  Strength: {selectedUnit.drug.strength} {selectedUnit.drug.strengthUnit}
-                </Text>
-                <Text size="sm">Form: {selectedUnit.drug.form}</Text>
-                {selectedUnit.drug.ndcId && (
-                  <Text size="sm">NDC: {selectedUnit.drug.ndcId}</Text>
-                )}
+                <Stack gap="xs">
+                  <Text fw={700} size="lg">
+                    {selectedUnit.drug.medicationName}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    Generic: {selectedUnit.drug.genericName}
+                  </Text>
+                  <Group gap="xs">
+                    <Text size="sm">Strength:</Text>
+                    <Badge color="gray" variant="outline" size="md">
+                      {selectedUnit.drug.strength} {selectedUnit.drug.strengthUnit}
+                    </Badge>
+                  </Group>
+                  <Text size="sm">Form: {selectedUnit.drug.form}</Text>
+                  {selectedUnit.drug.ndcId && (
+                    <Text size="sm">NDC: {selectedUnit.drug.ndcId}</Text>
+                  )}
+                </Stack>
               </Card>
 
               <Group grow>
@@ -325,15 +330,20 @@ function CheckOutContent() {
                   <Text size="sm" c="dimmed">
                     Total Quantity
                   </Text>
-                  <Text fw={700}>{selectedUnit.totalQuantity}</Text>
+                  <Badge color="blue" size="lg" variant="filled">
+                    {selectedUnit.totalQuantity}
+                  </Badge>
                 </div>
                 <div>
                   <Text size="sm" c="dimmed">
                     Expiry Date
                   </Text>
-                  <Text fw={700}>
+                  <Badge 
+                    color={new Date(selectedUnit.expiryDate) < new Date() ? 'red' : 'gray'} 
+                    size="lg"
+                  >
                     {new Date(selectedUnit.expiryDate).toLocaleDateString()}
-                  </Text>
+                  </Badge>
                 </div>
                 <div>
                   <Text size="sm" c="dimmed">

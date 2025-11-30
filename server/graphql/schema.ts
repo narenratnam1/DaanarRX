@@ -61,6 +61,9 @@ export const typeDefs = `#graphql
     dateCreated: DateTime!
     locationId: ID!
     clinicId: ID!
+    maxCapacity: Int
+    currentCapacity: Int
+    availableCapacity: Int
     location: Location
   }
 
@@ -206,6 +209,7 @@ export const typeDefs = `#graphql
     source: String!
     note: String
     locationId: ID!
+    maxCapacity: Int
   }
 
   input DrugInput {

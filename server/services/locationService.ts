@@ -2,6 +2,27 @@ import { supabaseServer } from '../utils/supabase';
 import { Location, Lot } from '@/types';
 
 /**
+ * Calculate current capacity usage for a lot
+ * Returns the sum of total_quantity from all units in the lot
+ */
+export async function getLotCurrentCapacity(lotId: string): Promise<number> {
+  const { data: units, error } = await supabaseServer
+    .from('units')
+    .select('total_quantity')
+    .eq('lot_id', lotId);
+
+  if (error) {
+    throw new Error(`Failed to calculate lot capacity: ${error.message}`);
+  }
+
+  if (!units || units.length === 0) {
+    return 0;
+  }
+
+  return units.reduce((sum, unit) => sum + (unit.total_quantity || 0), 0);
+}
+
+/**
  * Create a new location
  */
 export async function createLocation(
@@ -133,12 +154,18 @@ export async function createLot(
   source: string,
   locationId: string,
   clinicId: string,
-  note?: string
+  note?: string,
+  maxCapacity?: number
 ): Promise<Lot> {
   // Verify location exists and belongs to clinic
   const location = await getLocationById(locationId, clinicId);
   if (!location) {
     throw new Error('Location not found or does not belong to your clinic');
+  }
+
+  // Validate maxCapacity if provided
+  if (maxCapacity !== undefined && maxCapacity <= 0) {
+    throw new Error('Maximum capacity must be a positive number');
   }
 
   const { data: lot, error } = await supabaseServer
@@ -148,6 +175,7 @@ export async function createLot(
       location_id: locationId,
       clinic_id: clinicId,
       note,
+      max_capacity: maxCapacity,
     })
     .select()
     .single();
@@ -162,7 +190,7 @@ export async function createLot(
 /**
  * Get all lots for a clinic
  */
-export async function getLots(clinicId: string): Promise<Lot[]> {
+export async function getLots(clinicId: string): Promise<any[]> {
   const { data: lots, error } = await supabaseServer
     .from('lots')
     .select('*')
@@ -173,7 +201,25 @@ export async function getLots(clinicId: string): Promise<Lot[]> {
     throw new Error(`Failed to get lots: ${error.message}`);
   }
 
-  return lots?.map(formatLot) || [];
+  if (!lots || lots.length === 0) {
+    return [];
+  }
+
+  // Add capacity information to each lot
+  const lotsWithCapacity = await Promise.all(
+    lots.map(async (lot) => {
+      const formattedLot = formatLot(lot);
+      const currentCapacity = await getLotCurrentCapacity(lot.lot_id);
+      
+      return {
+        ...formattedLot,
+        currentCapacity,
+        availableCapacity: formattedLot.maxCapacity ? formattedLot.maxCapacity - currentCapacity : null,
+      };
+    })
+  );
+
+  return lotsWithCapacity;
 }
 
 /**
@@ -192,6 +238,24 @@ export async function getLotById(lotId: string, clinicId: string): Promise<Lot |
   }
 
   return formatLot(lot);
+}
+
+/**
+ * Get lot by ID with current capacity information
+ */
+export async function getLotWithCapacity(lotId: string, clinicId: string) {
+  const lot = await getLotById(lotId, clinicId);
+  if (!lot) {
+    return null;
+  }
+
+  const currentCapacity = await getLotCurrentCapacity(lotId);
+
+  return {
+    ...lot,
+    currentCapacity,
+    availableCapacity: lot.maxCapacity ? lot.maxCapacity - currentCapacity : null,
+  };
 }
 
 /**
@@ -222,5 +286,6 @@ function formatLot(lot: any): Lot {
     dateCreated: new Date(lot.date_created),
     locationId: lot.location_id,
     clinicId: lot.clinic_id,
+    maxCapacity: lot.max_capacity,
   };
 }

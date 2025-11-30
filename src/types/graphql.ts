@@ -26,6 +26,9 @@ export interface LotData {
   note?: string | null;
   dateCreated: string;
   locationId: string;
+  maxCapacity?: number | null;
+  currentCapacity?: number | null;
+  availableCapacity?: number | null;
   location?: LocationData;
 }
 

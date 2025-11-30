@@ -1,6 +1,7 @@
 import { supabaseServer } from '../utils/supabase';
 import { Unit, CreateUnitRequest } from '@/types';
 import { getOrCreateDrug } from './drugService';
+import { getLotById, getLotCurrentCapacity } from './locationService';
 
 /**
  * Create a new unit
@@ -19,6 +20,27 @@ export async function createUnit(
 
   if (!drugId) {
     throw new Error('Either drugId or drugData must be provided');
+  }
+
+  // Check lot capacity before creating unit
+  const lot = await getLotById(input.lotId, clinicId);
+  if (!lot) {
+    throw new Error('Lot not found');
+  }
+
+  // If the lot has a max capacity, validate that adding this unit won't exceed it
+  if (lot.maxCapacity !== undefined && lot.maxCapacity !== null) {
+    const currentCapacity = await getLotCurrentCapacity(input.lotId);
+    const newTotalCapacity = currentCapacity + input.totalQuantity;
+
+    if (newTotalCapacity > lot.maxCapacity) {
+      throw new Error(
+        `Cannot add unit: Would exceed lot capacity. ` +
+        `Current: ${currentCapacity}/${lot.maxCapacity}, ` +
+        `Attempting to add: ${input.totalQuantity}, ` +
+        `Available: ${lot.maxCapacity - currentCapacity}`
+      );
+    }
   }
 
   // Create the unit (qr_code will be the unitId itself, set after insertion)

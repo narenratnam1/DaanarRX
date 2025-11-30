@@ -73,7 +73,9 @@ const authSlice = createSlice({
         localStorage.setItem('lastActivity', now.toString());
       }
     },
-    logout: (state) => {
+    logout: (state, action?: PayloadAction<string | undefined>) => {
+      const reason = action?.payload;
+      
       state.user = null;
       state.clinic = null;
       state.clinics = [];
@@ -91,6 +93,11 @@ const authSlice = createSlice({
         localStorage.removeItem('clinics');
         localStorage.removeItem('authExpiresAt');
         localStorage.removeItem('lastActivity');
+        
+        // Store logout reason if provided
+        if (reason) {
+          localStorage.setItem('logoutReason', reason);
+        }
       }
     },
     restoreAuth: (state) => {

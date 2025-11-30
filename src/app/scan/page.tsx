@@ -241,9 +241,9 @@ export default function ScanPage() {
                     <Text size="sm" c="dimmed">
                       Strength
                     </Text>
-                    <Text fw={700}>
+                    <Badge color="gray" variant="outline" size="md">
                       {unit.drug.strength} {unit.drug.strengthUnit}
-                    </Text>
+                    </Badge>
                   </div>
                   <div>
                     <Text size="sm" c="dimmed">
@@ -264,7 +264,12 @@ export default function ScanPage() {
                     <Text size="sm" c="dimmed">
                       Expiry Date
                     </Text>
-                    <Text fw={700}>{new Date(unit.expiryDate).toLocaleDateString()}</Text>
+                    <Badge 
+                      color={new Date(unit.expiryDate) < new Date() ? 'red' : 'gray'} 
+                      size="md"
+                    >
+                      {new Date(unit.expiryDate).toLocaleDateString()}
+                    </Badge>
                   </div>
                 </Group>
 
