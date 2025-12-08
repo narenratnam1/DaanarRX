@@ -2,24 +2,26 @@
 
 import { useState } from 'react';
 import { useLazyQuery, gql } from '@apollo/client';
-import {
-  Stack,
-  Title,
-  Text,
-  Card,
-  Button,
-  TextInput,
-  Table,
-  Badge,
-  Group,
-} from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { QrCodeIcon, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/PageHeader';
 import { QRScanner } from '../../components/QRScanner';
-import { useRouter } from 'next/navigation';
 import { GetUnitResponse, GetTransactionsResponse, SearchUnitsResponse, UnitData, TransactionData } from '../../types/graphql';
-import { IconQrcode } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
 
 const GET_UNIT = gql`
   query GetUnit($unitId: ID!) {
@@ -73,6 +75,7 @@ const SEARCH_UNITS = gql`
 
 export default function ScanPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [unitId, setUnitId] = useState('');
   const [unit, setUnit] = useState<UnitData | null>(null);
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
@@ -83,18 +86,17 @@ export default function ScanPage() {
       if (data.getUnit) {
         setUnit(data.getUnit);
         getTransactions({ variables: { unitId: data.getUnit.unitId } });
-        notifications.show({
+        toast({
           title: 'Unit Found',
-          message: `${data.getUnit.drug.medicationName}`,
-          color: 'green',
+          description: `${data.getUnit.drug.medicationName}`,
         });
       }
     },
     onError: () => {
-      notifications.show({
+      toast({
         title: 'Error',
-        message: 'Unit not found',
-        color: 'red',
+        description: 'Unit not found',
+        variant: 'destructive',
       });
     },
   });
@@ -138,191 +140,187 @@ export default function ScanPage() {
 
   return (
     <AppShell>
-      <Stack gap="xl">
-        <PageHeader title="Scan / Lookup" description="Quick access to unit information" />
+      <div className="space-y-6">
+        <PageHeader title="Scan / Lookup" description="Quick access to unit information" showBackButton={false} />
 
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Stack>
-            <Group>
-              <Button
-                leftSection={<IconQrcode size={16} />}
-                onClick={() => setShowQRScanner(true)}
-                fullWidth
-              >
-                Scan QR Code
-              </Button>
-            </Group>
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowQRScanner(true)}
+              className="w-full"
+            >
+              <QrCodeIcon className="mr-2 h-4 w-4" />
+              Scan QR Code
+            </Button>
 
-            <TextInput
-              label="Unit ID"
-              placeholder="Enter unit ID or search"
-              value={unitId}
-              onChange={(e) => {
-                setUnitId(e.target.value);
-                if (e.target.value.length >= 3) {
-                  handleSearch();
-                }
-              }}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearch();
-                }
-              }}
-              rightSection={
-                unitId && (
-                  <Button size="xs" variant="subtle" onClick={handleClear}>
-                    Clear
+            <div className="space-y-2">
+              <Label htmlFor="unit-id">Unit ID</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="unit-id"
+                  placeholder="Enter unit ID or search"
+                  value={unitId}
+                  onChange={(e) => {
+                    setUnitId(e.target.value);
+                    if (e.target.value.length >= 3) {
+                      handleSearch();
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch();
+                    }
+                  }}
+                  className="flex-1"
+                />
+                {unitId && (
+                  <Button size="icon" variant="ghost" onClick={handleClear}>
+                    <X className="h-4 w-4" />
                   </Button>
-                )
-              }
-              rightSectionWidth={unitId ? 80 : 0}
-            />
+                )}
+              </div>
+            </div>
 
             {searchData?.searchUnitsByQuery && searchData.searchUnitsByQuery.length > 0 && !unit && (
-              <Card withBorder>
-                <Title order={5} mb="sm">
-                  Search Results
-                </Title>
-                <Table>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Medication</Table.Th>
-                      <Table.Th>Available</Table.Th>
-                      <Table.Th>Expiry</Table.Th>
-                      <Table.Th>Action</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {searchData.searchUnitsByQuery.map((searchUnit: UnitData) => (
-                      <Table.Tr key={searchUnit.unitId}>
-                        <Table.Td>
-                          <Text fw={500}>{searchUnit.drug.medicationName}</Text>
-                          <Text size="xs" c="dimmed">{searchUnit.drug.genericName}</Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge color={searchUnit.availableQuantity > 0 ? 'green' : 'red'}>
-                            {searchUnit.availableQuantity}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>{new Date(searchUnit.expiryDate).toLocaleDateString()}</Table.Td>
-                        <Table.Td>
-                          <Button size="xs" onClick={() => handleSelectUnit(searchUnit)}>
-                            Select
-                          </Button>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Search Results</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Medication</TableHead>
+                        <TableHead>Available</TableHead>
+                        <TableHead>Expiry</TableHead>
+                        <TableHead>Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {searchData.searchUnitsByQuery.map((searchUnit: UnitData) => (
+                        <TableRow key={searchUnit.unitId}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{searchUnit.drug.medicationName}</p>
+                              <p className="text-xs text-muted-foreground">{searchUnit.drug.genericName}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={searchUnit.availableQuantity > 0 ? 'default' : 'destructive'}>
+                              {searchUnit.availableQuantity}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{new Date(searchUnit.expiryDate).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <Button size="sm" onClick={() => handleSelectUnit(searchUnit)}>
+                              Select
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
               </Card>
             )}
-          </Stack>
+          </CardContent>
         </Card>
 
         {unit && (
           <>
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Stack>
-                <Group justify="apart">
-                  <Title order={3}>{unit.drug.medicationName}</Title>
-                  <Badge color={unit.availableQuantity > 0 ? 'green' : 'red'} size="lg">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <h3 className="text-2xl font-bold">{unit.drug.medicationName}</h3>
+                  <Badge variant={unit.availableQuantity > 0 ? 'default' : 'destructive'} className="text-lg px-3 py-1">
                     {unit.availableQuantity} / {unit.totalQuantity}
                   </Badge>
-                </Group>
+                </div>
 
-                <Group grow>
+                <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Text size="sm" c="dimmed">
-                      Generic Name
-                    </Text>
-                    <Text fw={700}>{unit.drug.genericName}</Text>
+                    <p className="text-sm text-muted-foreground">Generic Name</p>
+                    <p className="font-bold">{unit.drug.genericName}</p>
                   </div>
                   <div>
-                    <Text size="sm" c="dimmed">
-                      Strength
-                    </Text>
-                    <Badge color="gray" variant="outline" size="md">
+                    <p className="text-sm text-muted-foreground">Strength</p>
+                    <Badge variant="outline">
                       {unit.drug.strength} {unit.drug.strengthUnit}
                     </Badge>
                   </div>
                   <div>
-                    <Text size="sm" c="dimmed">
-                      Form
-                    </Text>
-                    <Text fw={700}>{unit.drug.form}</Text>
+                    <p className="text-sm text-muted-foreground">Form</p>
+                    <p className="font-bold">{unit.drug.form}</p>
                   </div>
-                </Group>
+                </div>
 
-                <Group grow>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Text size="sm" c="dimmed">
-                      Source
-                    </Text>
-                    <Text fw={700}>{unit.lot?.source}</Text>
+                    <p className="text-sm text-muted-foreground">Source</p>
+                    <p className="font-bold">{unit.lot?.source}</p>
                   </div>
                   <div>
-                    <Text size="sm" c="dimmed">
-                      Expiry Date
-                    </Text>
+                    <p className="text-sm text-muted-foreground">Expiry Date</p>
                     <Badge 
-                      color={new Date(unit.expiryDate) < new Date() ? 'red' : 'gray'} 
-                      size="md"
+                      variant={new Date(unit.expiryDate) < new Date() ? 'destructive' : 'secondary'}
                     >
                       {new Date(unit.expiryDate).toLocaleDateString()}
                     </Badge>
                   </div>
-                </Group>
+                </div>
 
                 {unit.optionalNotes && (
                   <div>
-                    <Text size="sm" c="dimmed">
-                      Notes
-                    </Text>
-                    <Text>{unit.optionalNotes}</Text>
+                    <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                    <p className="text-sm">{unit.optionalNotes}</p>
                   </div>
                 )}
 
                 <Button
                   onClick={() => router.push(`/checkout?unitId=${unit.unitId}`)}
                   disabled={unit.availableQuantity === 0}
+                  className="w-full"
                 >
                   Quick Check-Out
                 </Button>
-              </Stack>
+              </CardContent>
             </Card>
 
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Title order={4} mb="md">
-                Transaction History
-              </Title>
-              {transactions.length > 0 ? (
-                <Table>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Date</Table.Th>
-                      <Table.Th>Type</Table.Th>
-                      <Table.Th>Quantity</Table.Th>
-                      <Table.Th>Notes</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {transactions.map((tx: TransactionData) => (
-                      <Table.Tr key={tx.transactionId}>
-                        <Table.Td>{new Date(tx.timestamp).toLocaleString()}</Table.Td>
-                        <Table.Td>
-                          <Badge color={tx.type === 'check_in' ? 'green' : 'blue'}>
-                            {tx.type.replace('_', ' ')}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>{tx.quantity}</Table.Td>
-                        <Table.Td>{tx.notes || '-'}</Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              ) : (
-                <Text c="dimmed">No transactions yet</Text>
-              )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Transaction History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {transactions.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.map((tx: TransactionData) => (
+                        <TableRow key={tx.transactionId}>
+                          <TableCell className="text-sm">{new Date(tx.timestamp).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <Badge variant={tx.type === 'check_in' ? 'default' : 'secondary'}>
+                              {tx.type.replace('_', ' ')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{tx.quantity}</TableCell>
+                          <TableCell className="text-sm">{tx.notes || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No transactions yet</p>
+                )}
+              </CardContent>
             </Card>
           </>
         )}
@@ -334,7 +332,7 @@ export default function ScanPage() {
           title="Scan DaanaRX QR Code"
           description="Scan the QR code on the medication unit to look it up"
         />
-      </Stack>
+      </div>
     </AppShell>
   );
 }

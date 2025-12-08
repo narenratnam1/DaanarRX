@@ -1,5 +1,5 @@
-import { Alert, Text } from '@mantine/core';
-import { IconInfoCircle, IconAlertTriangle, IconAlertCircle } from '@tabler/icons-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info, AlertTriangle, AlertCircle } from 'lucide-react';
 import { CapacityBadge } from './CapacityBadge';
 
 interface LotCapacityAlertProps {
@@ -30,41 +30,39 @@ export function LotCapacityAlert({
   const availableCapacity = maxCapacity - currentCapacity;
   const percentage = maxCapacity > 0 ? (currentCapacity / maxCapacity) * 100 : 0;
   
-  // Determine alert color and icon based on capacity usage if variant not provided
-  const alertColor = variant === 'error' ? 'red' 
-    : variant === 'warning' ? 'yellow'
-    : variant === 'info' ? 'blue'
-    : percentage >= 100 ? 'red'
-    : percentage >= 90 ? 'orange'
-    : 'blue';
+  // Determine alert variant and icon based on capacity usage if variant not provided
+  const alertVariant = variant === 'error' ? 'destructive' 
+    : variant === 'warning' ? 'default'
+    : variant === 'info' ? 'default'
+    : percentage >= 100 ? 'destructive'
+    : percentage >= 90 ? 'default'
+    : 'default';
 
-  const Icon = alertColor === 'red' ? IconAlertCircle
-    : alertColor === 'orange' || alertColor === 'yellow' ? IconAlertTriangle
-    : IconInfoCircle;
+  const Icon = percentage >= 100 || variant === 'error' ? AlertCircle
+    : percentage >= 90 || variant === 'warning' ? AlertTriangle
+    : Info;
 
   return (
-    <Alert 
-      color={alertColor} 
-      variant="light"
-      icon={<Icon size={16} />}
-    >
-      <Text size="sm">
-        <strong>Lot Capacity:</strong>{' '}
-        <CapacityBadge 
-          current={currentCapacity} 
-          max={maxCapacity}
-        />{' '}
-        units
-        {showAvailable && availableCapacity !== null && (
-          <> ({availableCapacity} available)</>
+    <Alert variant={alertVariant}>
+      <Icon className="h-4 w-4" />
+      <AlertDescription>
+        <div className="text-sm">
+          <strong>Lot Capacity:</strong>{' '}
+          <CapacityBadge 
+            current={currentCapacity} 
+            max={maxCapacity}
+          />{' '}
+          units
+          {showAvailable && availableCapacity !== null && (
+            <> ({availableCapacity} available)</>
+          )}
+        </div>
+        {percentage >= 100 && (
+          <div className="mt-2 text-sm font-medium">
+            ⚠️ This lot is at full capacity. Please select a different lot.
+          </div>
         )}
-      </Text>
-      {percentage >= 100 && (
-        <Text size="sm" c="red" mt="xs">
-          ⚠️ This lot is at full capacity. Please select a different lot.
-        </Text>
-      )}
+      </AlertDescription>
     </Alert>
   );
 }
-

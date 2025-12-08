@@ -1,8 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { ActionIcon, Tooltip } from '@mantine/core';
-import { IconMessageCircle } from '@tabler/icons-react';
+import { MessageCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { FeedbackModal } from './FeedbackModal';
 
 export function FeedbackButton() {
@@ -10,24 +16,23 @@ export function FeedbackButton() {
 
   return (
     <>
-      <Tooltip label="Send Feedback" position="left">
-        <ActionIcon
-          size={56}
-          radius="xl"
-          variant="filled"
-          color="blue"
-          onClick={() => setOpened(true)}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            zIndex: 1000,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          }}
-        >
-          <IconMessageCircle size={28} />
-        </ActionIcon>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="lg"
+              onClick={() => setOpened(true)}
+              className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg"
+            >
+              <MessageCircle className="h-6 w-6" />
+              <span className="sr-only">Send Feedback</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>Send Feedback</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <FeedbackModal opened={opened} onClose={() => setOpened(false)} />
     </>

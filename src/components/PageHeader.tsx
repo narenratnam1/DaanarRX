@@ -1,42 +1,46 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Group, Title, Text, ActionIcon, Box } from '@mantine/core';
-import { IconArrowLeft } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 interface PageHeaderProps {
   title: string;
   description?: string;
   showBackButton?: boolean;
+  action?: React.ReactNode;
 }
 
-export function PageHeader({ title, description, showBackButton = true }: PageHeaderProps) {
+export function PageHeader({ 
+  title, 
+  description, 
+  showBackButton = true, 
+  action 
+}: PageHeaderProps) {
   const router = useRouter();
 
   return (
-    <Box mb="xl">
-      <Group gap="md" align="flex-start">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex items-start gap-4">
         {showBackButton && (
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="lg"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => router.back()}
-            aria-label="Go back"
-            mt={4}
+            className="shrink-0"
           >
-            <IconArrowLeft size={24} />
-          </ActionIcon>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Go back</span>
+          </Button>
         )}
-        <div style={{ flex: 1 }}>
-          <Title order={1}>{title}</Title>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
           {description && (
-            <Text c="dimmed" size="sm" mt={4}>
-              {description}
-            </Text>
+            <p className="text-sm text-muted-foreground md:text-base">{description}</p>
           )}
         </div>
-      </Group>
-    </Box>
+      </div>
+      {action && <div className="flex items-center gap-2">{action}</div>}
+    </div>
   );
 }

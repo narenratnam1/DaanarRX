@@ -4,35 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
-import {
-  Stack,
-  Title,
-  Text,
-  Card,
-  Button,
-  TextInput,
-  Textarea,
-  Select,
-  NumberInput,
-  Stepper,
-  Group,
-  Modal,
-  Alert,
-  Loader,
-  Center,
-} from '@mantine/core';
-import { DateInput } from '@mantine/dates';
-import { notifications } from '@mantine/notifications';
-import { IconAlertCircle, IconPrinter } from '@tabler/icons-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { useReactToPrint } from 'react-to-print';
+import { QrCodeIcon, Printer, AlertCircle, Loader2 } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/PageHeader';
-import { QRCodeSVG } from 'qrcode.react';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
-import { CapacityBadge } from '../../components/CapacityBadge';
 import { LotCapacityAlert } from '../../components/LotCapacityAlert';
 import { LotCapacityStatus, useCapacityValidation } from '../../components/LotCapacityStatus';
-import { IconQrcode } from '@tabler/icons-react';
-import { useReactToPrint } from 'react-to-print';
 import {
   GetLocationsResponse,
   GetLotsResponse,
@@ -41,6 +20,25 @@ import {
   LocationData,
 } from '../../types/graphql';
 import { RootState } from '../../store';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Stepper, Step } from '@/components/ui/stepper';
+import { DatePicker } from '@/components/ui/date-picker';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const GET_LOCATIONS = gql`
   query GetLocations {
@@ -109,13 +107,14 @@ const CREATE_UNIT = gql`
 
 export default function CheckInPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const user = useSelector((state: RootState) => state.auth.user);
   const [activeStep, setActiveStep] = useState(0);
 
   // Lot creation state
   const [lotSource, setLotSource] = useState('');
   const [lotNote, setLotNote] = useState('');
-  const [lotMaxCapacity, setLotMaxCapacity] = useState<number | undefined>(undefined);
+  const [lotMaxCapacity, setLotMaxCapacity] = useState<string>('');
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [selectedLotId, setSelectedLotId] = useState<string>('');
   const [selectedLot, setSelectedLot] = useState<LotData | null>(null);
@@ -138,8 +137,8 @@ export default function CheckInPage() {
   });
 
   // Unit creation state
-  const [totalQuantity, setTotalQuantity] = useState<number>(0);
-  const [availableQuantity, setAvailableQuantity] = useState<number>(0);
+  const [totalQuantity, setTotalQuantity] = useState<string>('');
+  const [availableQuantity, setAvailableQuantity] = useState<string>('');
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
   const [unitNotes, setUnitNotes] = useState('');
   const [createdUnitId, setCreatedUnitId] = useState<string>('');
@@ -176,7 +175,6 @@ export default function CheckInPage() {
     `,
   });
   
-  // Check if there are any locations
   const hasLocations = locationsData?.getLocations && locationsData.getLocations.length > 0;
   const isAdmin = user?.userRole === 'admin' || user?.userRole === 'superadmin';
 
@@ -192,7 +190,6 @@ export default function CheckInPage() {
     if (selectedDrug) {
       return true;
     }
-    // Check manual drug entry
     return (
       manualDrug.medicationName.trim() !== '' &&
       manualDrug.genericName.trim() !== '' &&
@@ -204,13 +201,19 @@ export default function CheckInPage() {
   };
 
   const isStep3Valid = () => {
-    if (totalQuantity <= 0 || expiryDate === null) {
+    const qty = parseInt(totalQuantity, 10);
+    if (isNaN(qty) || qty <= 0 || expiryDate === null) {
       return false;
     }
 
-    // If the lot has a max capacity, check if we would exceed it
-    if (selectedLot?.maxCapacity && selectedLot.currentCapacity !== undefined) {
-      return useCapacityValidation(selectedLot.currentCapacity, selectedLot.maxCapacity, totalQuantity);
+    if (
+      selectedLot?.maxCapacity &&
+      selectedLot.currentCapacity !== undefined &&
+      selectedLot.currentCapacity !== null
+    ) {
+      const currentCap = selectedLot.currentCapacity ?? 0;
+      const maxCap = selectedLot.maxCapacity ?? 0;
+      return useCapacityValidation(currentCap, maxCap, qty);
     }
 
     return true;
@@ -239,12 +242,11 @@ export default function CheckInPage() {
         setSearchResults([]);
         setShowDropdown(false);
       }
-    }, 500); // 500ms debounce
+    }, 500);
 
     return () => clearTimeout(timeoutId);
   }, [searchInput]);
 
-  // Unified search using local database
   const handleUnifiedSearch = async (searchTerm: string) => {
     if (searchTerm.length < 2) return;
 
@@ -259,7 +261,6 @@ export default function CheckInPage() {
       } else {
         setSearchResults([]);
         setShowDropdown(false);
-        // If NDC search with no results, prepopulate NDC in manual form
         const cleanedNDC = searchTerm.replace(/[^0-9]/g, '');
         if (cleanedNDC.length >= 10) {
           setManualDrug({ ...manualDrug, ndcId: cleanedNDC });
@@ -280,12 +281,11 @@ export default function CheckInPage() {
     setSearchResults([]);
     setShowDropdown(false);
     setShowManualEntry(false);
-    notifications.show({
+    toast({
       title: 'Drug Selected',
-      message: drug.inInventory 
+      description: drug.inInventory 
         ? `${drug.medicationName} (Already in inventory)` 
         : drug.medicationName,
-      color: drug.inInventory ? 'blue' : 'green',
     });
   };
 
@@ -295,19 +295,17 @@ export default function CheckInPage() {
     onCompleted: (data) => {
       setSelectedLotId(data.createLot.lotId);
       setSelectedLot(data.createLot);
-      notifications.show({
+      toast({
         title: 'Success',
-        message: 'Lot created successfully',
-        color: 'green',
+        description: 'Lot created successfully',
       });
-      // Auto-advance to drug search step after creating lot
       setActiveStep(1);
     },
     onError: (error) => {
-      notifications.show({
+      toast({
         title: 'Error',
-        message: error.message,
-        color: 'red',
+        description: error.message,
+        variant: 'destructive',
       });
     },
   });
@@ -316,18 +314,17 @@ export default function CheckInPage() {
     refetchQueries: ['GetDashboardStats', 'GetUnits'],
     onCompleted: (data) => {
       setCreatedUnitId(data.createUnit.unitId);
-      notifications.show({
+      toast({
         title: 'Success',
-        message: `Unit created successfully! Transaction logged.`,
-        color: 'green',
+        description: `Unit created successfully! Transaction logged.`,
       });
       setShowQRModal(true);
     },
     onError: (error) => {
-      notifications.show({
+      toast({
         title: 'Error',
-        message: error.message,
-        color: 'red',
+        description: error.message,
+        variant: 'destructive',
       });
     },
   });
@@ -335,10 +332,10 @@ export default function CheckInPage() {
   const handleCreateLot = () => {
     if (useExistingLot) {
       if (!selectedLotId) {
-        notifications.show({
+        toast({
           title: 'Error',
-          message: 'Please select a lot',
-          color: 'red',
+          description: 'Please select a lot',
+          variant: 'destructive',
         });
         return;
       }
@@ -346,13 +343,14 @@ export default function CheckInPage() {
       return;
     }
 
+    const maxCap = lotMaxCapacity ? parseInt(lotMaxCapacity, 10) : undefined;
     createLot({
       variables: {
         input: {
           source: lotSource,
           note: lotNote,
           locationId: selectedLocationId,
-          maxCapacity: lotMaxCapacity,
+          maxCapacity: maxCap,
         },
       },
     });
@@ -361,26 +359,27 @@ export default function CheckInPage() {
   const handleBarcodeScanned = (code: string) => {
     setShowBarcodeScanner(false);
     setSearchInput(code);
-    // Search will be triggered automatically by the useEffect
   };
 
   const handleCreateUnit = () => {
     if (!selectedLotId || !expiryDate) {
-      notifications.show({
+      toast({
         title: 'Error',
-        message: 'Please fill all required fields',
-        color: 'red',
+        description: 'Please fill all required fields',
+        variant: 'destructive',
       });
       return;
     }
 
     const drugData = selectedDrug || manualDrug;
+    const qty = parseInt(totalQuantity, 10);
+    const availQty = parseInt(availableQuantity, 10);
 
     createUnit({
       variables: {
         input: {
-          totalQuantity,
-          availableQuantity,
+          totalQuantity: qty,
+          availableQuantity: availQty,
           lotId: selectedLotId,
           expiryDate: expiryDate.toISOString().split('T')[0],
           drugId: selectedDrug?.drugId,
@@ -395,7 +394,7 @@ export default function CheckInPage() {
     setActiveStep(0);
     setLotSource('');
     setLotNote('');
-    setLotMaxCapacity(undefined);
+    setLotMaxCapacity('');
     setSelectedLocationId('');
     setSelectedLotId('');
     setSelectedLot(null);
@@ -411,8 +410,8 @@ export default function CheckInPage() {
       ndcId: '',
       form: 'Tablet',
     });
-    setTotalQuantity(0);
-    setAvailableQuantity(0);
+    setTotalQuantity('');
+    setAvailableQuantity('');
     setExpiryDate(null);
     setUnitNotes('');
     setCreatedUnitId('');
@@ -421,543 +420,535 @@ export default function CheckInPage() {
 
   return (
     <AppShell>
-      <Stack gap="xl">
-        <PageHeader title="Check In" description="Add new medications to inventory" />
+      <div className="space-y-6">
+        <PageHeader title="Check In" description="Add new medications to inventory" showBackButton={false} />
 
         {!hasLocations && (
-          <Alert icon={<IconAlertCircle size={16} />} title="No Storage Locations" color={isAdmin ? "yellow" : "red"} variant="filled">
-            {isAdmin ? (
-              <>
-                You need to create at least one storage location before checking in medications.{' '}
-                <Button variant="white" size="xs" onClick={() => router.push('/admin')} ml="xs">
-                  Go to Admin
-                </Button>
-              </>
-            ) : (
-              'No storage locations are available. Please contact your administrator to create storage locations before checking in medications.'
-            )}
+          <Alert variant={isAdmin ? 'default' : 'destructive'}>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {isAdmin ? (
+                <div className="flex items-center gap-2">
+                  You need to create at least one storage location before checking in medications.
+                  <Button variant="outline" size="sm" onClick={() => router.push('/admin')}>
+                    Go to Admin
+                  </Button>
+                </div>
+              ) : (
+                'No storage locations are available. Please contact your administrator to create storage locations before checking in medications.'
+              )}
+            </AlertDescription>
           </Alert>
         )}
 
-        <Stepper active={activeStep}>
-          <Stepper.Step label="Create Lot" description="Donation source">
-            <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
-              <Stack>
-                <Group>
+        <Stepper activeStep={activeStep}>
+          <Step label="Create Lot" description="Donation source">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex gap-2">
                   <Button
-                    variant={!useExistingLot ? 'filled' : 'light'}
+                    variant={!useExistingLot ? 'default' : 'outline'}
                     onClick={() => setUseExistingLot(false)}
+                    className="flex-1"
                   >
                     Create New Lot
                   </Button>
                   <Button
-                    variant={useExistingLot ? 'filled' : 'light'}
+                    variant={useExistingLot ? 'default' : 'outline'}
                     onClick={() => setUseExistingLot(true)}
+                    className="flex-1"
                   >
                     Use Existing Lot
                   </Button>
-                </Group>
+                </div>
 
                 {useExistingLot ? (
-                  <>
-                    <Select
-                      label="Select Lot"
-                      placeholder="Choose existing lot"
-                      data={
-                        lotsData?.getLots.map((lot: LotData) => {
-                          let label = `${lot.source} - ${new Date(lot.dateCreated).toLocaleDateString()}`;
-                          if (lot.maxCapacity && lot.currentCapacity !== undefined) {
-                            const available = lot.maxCapacity - lot.currentCapacity;
-                            label += ` (${lot.currentCapacity}/${lot.maxCapacity}, ${available} available)`;
-                          }
-                          return {
-                            value: lot.lotId,
-                            label,
-                          };
-                        }) || []
-                      }
-                      value={selectedLotId}
-                      onChange={(value) => {
-                        setSelectedLotId(value || '');
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="select-lot">Select Lot</Label>
+                      <Select value={selectedLotId} onValueChange={(value) => {
+                        setSelectedLotId(value);
                         const lot = lotsData?.getLots.find((l: LotData) => l.lotId === value);
                         setSelectedLot(lot || null);
-                      }}
-                    />
-                    {selectedLot && selectedLot.maxCapacity && selectedLot.currentCapacity !== undefined && (
+                      }}>
+                        <SelectTrigger id="select-lot">
+                          <SelectValue placeholder="Choose existing lot" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {lotsData?.getLots.map((lot: LotData) => {
+                            let label = `${lot.source} - ${new Date(lot.dateCreated).toLocaleDateString()}`;
+                            if (lot.maxCapacity && lot.currentCapacity !== undefined && lot.currentCapacity !== null) {
+                              const available = lot.maxCapacity - lot.currentCapacity;
+                              label += ` (${lot.currentCapacity}/${lot.maxCapacity}, ${available} available)`;
+                            }
+                            return (
+                              <SelectItem key={lot.lotId} value={lot.lotId}>
+                                {label}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {selectedLot && selectedLot.maxCapacity && selectedLot.currentCapacity !== undefined && selectedLot.currentCapacity !== null && (
                       <LotCapacityAlert
                         currentCapacity={selectedLot.currentCapacity}
                         maxCapacity={selectedLot.maxCapacity}
                         showAvailable
                       />
                     )}
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <TextInput
-                      label="Donation Source"
-                      placeholder="e.g., CVS Pharmacy"
-                      required
-                      value={lotSource}
-                      onChange={(e) => setLotSource(e.target.value)}
-                    />
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="lot-source">Donation Source *</Label>
+                      <Input
+                        id="lot-source"
+                        placeholder="e.g., CVS Pharmacy"
+                        value={lotSource}
+                        onChange={(e) => setLotSource(e.target.value)}
+                      />
+                    </div>
 
-                    <Select
-                      label="Storage Location"
-                      placeholder="Select location"
-                      required
-                      data={
-                        locationsData?.getLocations.map((loc: LocationData) => ({
-                          value: loc.locationId,
-                          label: `${loc.name} (${loc.temp})`,
-                        })) || []
-                      }
-                      value={selectedLocationId}
-                      onChange={(value) => setSelectedLocationId(value || '')}
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Storage Location *</Label>
+                      <Select value={selectedLocationId} onValueChange={setSelectedLocationId}>
+                        <SelectTrigger id="location">
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locationsData?.getLocations.map((loc: LocationData) => (
+                            <SelectItem key={loc.locationId} value={loc.locationId}>
+                              {loc.name} ({loc.temp})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                    <NumberInput
-                      label="Maximum Capacity (Optional)"
-                      placeholder="e.g., 100"
-                      description="Maximum number of units that can be stored in this lot"
-                      min={1}
-                      value={lotMaxCapacity}
-                      onChange={(value) => setLotMaxCapacity(value as number | undefined)}
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="max-capacity">Maximum Capacity (Optional)</Label>
+                      <Input
+                        id="max-capacity"
+                        type="number"
+                        placeholder="e.g., 100"
+                        value={lotMaxCapacity}
+                        onChange={(e) => setLotMaxCapacity(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Maximum number of units that can be stored in this lot
+                      </p>
+                    </div>
 
-                    <Textarea
-                      label="Notes (Optional)"
-                      placeholder="Any additional information"
-                      value={lotNote}
-                      onChange={(e) => setLotNote(e.target.value)}
-                    />
-                  </>
+                    <div className="space-y-2">
+                      <Label htmlFor="lot-notes">Notes (Optional)</Label>
+                      <Textarea
+                        id="lot-notes"
+                        placeholder="Any additional information"
+                        value={lotNote}
+                        onChange={(e) => setLotNote(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 )}
 
                 {!useExistingLot && (
-                  <Button onClick={handleCreateLot} loading={creatingLot}>
+                  <Button onClick={handleCreateLot} disabled={creatingLot} className="w-full">
+                    {creatingLot && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Lot
                   </Button>
                 )}
 
-                <Group justify="flex-end" mt="xl">
-                  <Button 
-                    onClick={nextStep} 
-                    disabled={!isStep1Valid()}
-                  >
+                <div className="flex justify-end mt-6">
+                  <Button onClick={nextStep} disabled={!isStep1Valid()}>
                     Next Step
                   </Button>
-                </Group>
-              </Stack>
+                </div>
+              </CardContent>
             </Card>
-          </Stepper.Step>
+          </Step>
 
-          <Stepper.Step label="Find Drug" description="NDC or manual entry">
-            <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
-              <Stack>
-                <Group>
-                  <Button
-                    leftSection={<IconQrcode size={16} />}
-                    onClick={() => setShowBarcodeScanner(true)}
-                    fullWidth
-                  >
-                    Scan Barcode
-                  </Button>
-                </Group>
+          <Step label="Find Drug" description="NDC or manual entry">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowBarcodeScanner(true)}
+                  className="w-full"
+                >
+                  <QrCodeIcon className="mr-2 h-4 w-4" />
+                  Scan Barcode
+                </Button>
 
-                <div style={{ position: 'relative' }}>
-                  <TextInput
-                    label="Search by Drug Name or NDC"
-                    placeholder="Start typing drug name or NDC code..."
-                    value={searchInput}
-                    onChange={(e) => {
-                      setSearchInput(e.target.value);
-                      setShowDropdown(true);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        setShowDropdown(false);
-                      }
-                    }}
-                    onFocus={() => {
-                      if (searchResults.length > 0) {
+                <div className="relative space-y-2">
+                  <Label htmlFor="drug-search">Search by Drug Name or NDC</Label>
+                  <div className="relative">
+                    <Input
+                      id="drug-search"
+                      placeholder="Start typing drug name or NDC code..."
+                      value={searchInput}
+                      onChange={(e) => {
+                        setSearchInput(e.target.value);
                         setShowDropdown(true);
-                      }
-                    }}
-                    rightSection={searching ? <Loader size="xs" /> : null}
-                  />
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setShowDropdown(false);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (searchResults.length > 0) {
+                          setShowDropdown(true);
+                        }
+                      }}
+                    />
+                    {searching && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
 
                   {showDropdown && searchResults.length > 0 && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        zIndex: 1000,
-                        width: '100%',
-                        marginTop: '4px',
-                      }}
-                    >
-                      <Card 
-                        withBorder 
-                        shadow="md"
-                        style={{ 
-                          backgroundColor: 'white',
-                        }}
-                      >
-                        <div
-                          style={{
-                            maxHeight: '400px',
-                            overflowY: 'auto',
-                            overflowX: 'hidden',
-                          }}
-                        >
-                          <Stack gap="xs">
-                            {searchResults.length > 5 && (
-                              <Text size="xs" c="dimmed" ta="center" pb="xs" style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}>
-                                Showing {searchResults.length} results - Scroll for more ↓
-                              </Text>
+                    <Card className="absolute z-50 w-full mt-1 max-h-[400px] overflow-auto">
+                      <CardContent className="p-2 space-y-1">
+                        {searchResults.length > 5 && (
+                          <p className="text-xs text-center text-muted-foreground py-2 sticky top-0 bg-card">
+                            Showing {searchResults.length} results - Scroll for more ↓
+                          </p>
+                        )}
+                        {searchResults.map((drug, index) => (
+                          <div
+                            key={index}
+                            className={cn(
+                              "p-3 rounded-md cursor-pointer hover:bg-accent",
+                              drug.inInventory && "bg-blue-50 dark:bg-blue-950/20"
                             )}
-                            {searchResults.map((drug, index) => (
-                              <Card
-                                key={index}
-                                padding="sm"
-                                style={{ cursor: 'pointer' }}
-                                onClick={() => handleSelectDrug(drug)}
-                                withBorder
-                                bg={drug.inInventory ? 'blue.0' : 'white'}
-                              >
-                                <Group justify="space-between">
-                                  <div>
-                                    <Text fw={600} size="sm">{drug.medicationName}</Text>
-                                    <Text size="xs" c="dimmed">
-                                      {drug.strength} {drug.strengthUnit} - {drug.form}
-                                    </Text>
-                                    <Text size="xs" c="blue">NDC: {drug.ndcId}</Text>
-                                  </div>
-                                  {drug.inInventory && (
-                                    <Text size="xs" c="blue" fw={700}>In Stock</Text>
-                                  )}
-                                </Group>
-                              </Card>
-                            ))}
-                          </Stack>
-                        </div>
-                      </Card>
-                    </div>
+                            onClick={() => handleSelectDrug(drug)}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-semibold text-sm">{drug.medicationName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {drug.strength} {drug.strengthUnit} - {drug.form}
+                                </p>
+                                <p className="text-xs text-blue-600">NDC: {drug.ndcId}</p>
+                              </div>
+                              {drug.inInventory && (
+                                <Badge variant="secondary" className="text-xs">In Stock</Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
                   )}
                 </div>
 
                 {selectedDrug && (
-                  <Card withBorder p="sm" bg={selectedDrug.inInventory ? "blue.0" : "green.0"}>
-                    <Group justify="space-between">
-                      <div>
-                        <Text fw={700}>{selectedDrug.medicationName}</Text>
-                        <Text size="sm">
-                          {selectedDrug.strength} {selectedDrug.strengthUnit} - {selectedDrug.form}
-                        </Text>
-                        <Text size="xs" c="dimmed">NDC: {selectedDrug.ndcId}</Text>
+                  <Card className="bg-muted/50">
+                    <CardContent className="pt-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold">{selectedDrug.medicationName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedDrug.strength} {selectedDrug.strengthUnit} - {selectedDrug.form}
+                          </p>
+                          <p className="text-xs text-muted-foreground">NDC: {selectedDrug.ndcId}</p>
+                        </div>
+                        {selectedDrug.inInventory && (
+                          <Badge>Already in Inventory</Badge>
+                        )}
                       </div>
-                      {selectedDrug.inInventory && (
-                        <Text size="sm" c="blue" fw={700}>Already in Inventory</Text>
-                      )}
-                    </Group>
+                    </CardContent>
                   </Card>
                 )}
 
                 {!selectedDrug && (
                   <>
                     <Button
-                      variant="light"
+                      variant="outline"
                       onClick={() => setShowManualEntry(!showManualEntry)}
-                      mt="md"
+                      className="w-full"
                     >
                       {showManualEntry ? 'Hide Manual Entry' : 'Enter Drug Manually'}
                     </Button>
 
                     {showManualEntry && (
-                      <Title order={5} mt="md">Manual Drug Entry:</Title>
+                      <div className="space-y-4 pt-4">
+                        <h3 className="text-lg font-semibold">Manual Drug Entry:</h3>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="med-name">Medication Name *</Label>
+                          <Input
+                            id="med-name"
+                            placeholder="e.g., Lisinopril 10mg Tablet"
+                            value={manualDrug.medicationName}
+                            onChange={(e) => setManualDrug({ ...manualDrug, medicationName: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="generic-name">Generic Name *</Label>
+                          <Input
+                            id="generic-name"
+                            placeholder="e.g., Lisinopril"
+                            value={manualDrug.genericName}
+                            onChange={(e) => setManualDrug({ ...manualDrug, genericName: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="strength">Strength *</Label>
+                            <Input
+                              id="strength"
+                              type="number"
+                              placeholder="10"
+                              value={manualDrug.strength || ''}
+                              onChange={(e) => setManualDrug({ ...manualDrug, strength: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="strength-unit">Unit *</Label>
+                            <Select value={manualDrug.strengthUnit} onValueChange={(value) => setManualDrug({ ...manualDrug, strengthUnit: value })}>
+                              <SelectTrigger id="strength-unit">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="mg">mg (milligrams)</SelectItem>
+                                <SelectItem value="g">g (grams)</SelectItem>
+                                <SelectItem value="mcg">mcg (micrograms)</SelectItem>
+                                <SelectItem value="kg">kg (kilograms)</SelectItem>
+                                <SelectItem value="mL">mL (milliliters)</SelectItem>
+                                <SelectItem value="L">L (liters)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="ndc">NDC ID *</Label>
+                            <Input
+                              id="ndc"
+                              placeholder="Enter NDC code"
+                              value={manualDrug.ndcId}
+                              onChange={(e) => setManualDrug({ ...manualDrug, ndcId: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="form">Form *</Label>
+                            <Select value={manualDrug.form} onValueChange={(value) => setManualDrug({ ...manualDrug, form: value })}>
+                              <SelectTrigger id="form">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Tablet">Tablet</SelectItem>
+                                <SelectItem value="Capsule">Capsule</SelectItem>
+                                <SelectItem value="Liquid">Liquid</SelectItem>
+                                <SelectItem value="Injection">Injection</SelectItem>
+                                <SelectItem value="Cream">Cream</SelectItem>
+                                <SelectItem value="Ointment">Ointment</SelectItem>
+                                <SelectItem value="Patch">Patch</SelectItem>
+                                <SelectItem value="Inhaler">Inhaler</SelectItem>
+                                <SelectItem value="Suppository">Suppository</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </>
                 )}
 
-                {(showManualEntry || !selectedDrug) && showManualEntry && (
-                <>
-                <TextInput
-                  label="Medication Name"
-                  placeholder="e.g., Lisinopril 10mg Tablet"
-                  value={manualDrug.medicationName}
-                  onChange={(e) =>
-                    setManualDrug({ ...manualDrug, medicationName: e.target.value })
-                  }
-                />
-
-                <TextInput
-                  label="Generic Name"
-                  placeholder="e.g., Lisinopril"
-                  value={manualDrug.genericName}
-                  onChange={(e) =>
-                    setManualDrug({ ...manualDrug, genericName: e.target.value })
-                  }
-                />
-
-                <Group grow>
-                  <NumberInput
-                    label="Strength"
-                    placeholder="10"
-                    value={manualDrug.strength}
-                    onChange={(value) =>
-                      setManualDrug({ ...manualDrug, strength: Number(value) })
-                    }
-                  />
-                  <Select
-                    label="Unit"
-                    placeholder="Select unit"
-                    required
-                    data={[
-                      { value: 'mg', label: 'mg (milligrams)' },
-                      { value: 'g', label: 'g (grams)' },
-                      { value: 'mcg', label: 'mcg (micrograms)' },
-                      { value: 'kg', label: 'kg (kilograms)' },
-                      { value: 'mL', label: 'mL (milliliters)' },
-                      { value: 'L', label: 'L (liters)' },
-                    ]}
-                    value={manualDrug.strengthUnit}
-                    onChange={(value) =>
-                      setManualDrug({ ...manualDrug, strengthUnit: value || 'mg' })
-                    }
-                  />
-                </Group>
-
-                <Group grow>
-                  <TextInput
-                    label="NDC ID"
-                    placeholder="Enter NDC code"
-                    required
-                    value={manualDrug.ndcId}
-                    onChange={(e) =>
-                      setManualDrug({ ...manualDrug, ndcId: e.target.value })
-                    }
-                  />
-                  <Select
-                    label="Form"
-                    placeholder="Select form"
-                    required
-                    data={[
-                      { value: 'Tablet', label: 'Tablet' },
-                      { value: 'Capsule', label: 'Capsule' },
-                      { value: 'Liquid', label: 'Liquid' },
-                      { value: 'Injection', label: 'Injection' },
-                      { value: 'Cream', label: 'Cream' },
-                      { value: 'Ointment', label: 'Ointment' },
-                      { value: 'Patch', label: 'Patch' },
-                      { value: 'Inhaler', label: 'Inhaler' },
-                      { value: 'Suppository', label: 'Suppository' },
-                    ]}
-                    value={manualDrug.form}
-                    onChange={(value) =>
-                      setManualDrug({ ...manualDrug, form: value || 'Tablet' })
-                    }
-                  />
-                </Group>
-                </>
-                )}
-
-                <Group justify="space-between" mt="xl">
-                  <Button 
-                    variant="default" 
-                    onClick={prevStep}
-                  >
+                <div className="flex justify-between mt-6">
+                  <Button variant="outline" onClick={prevStep}>
                     Previous
                   </Button>
-                  <Button 
-                    onClick={nextStep} 
-                    disabled={!isStep2Valid()}
-                  >
+                  <Button onClick={nextStep} disabled={!isStep2Valid()}>
                     Next Step
                   </Button>
-                </Group>
-              </Stack>
+                </div>
+              </CardContent>
             </Card>
-          </Stepper.Step>
+          </Step>
 
-          <Stepper.Step label="Create Unit" description="Quantity and expiry">
-            <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
-              <Stack>
-                {selectedLot && selectedLot.maxCapacity && selectedLot.currentCapacity !== undefined && (
+          <Step label="Create Unit" description="Quantity and expiry">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                {selectedLot && selectedLot.maxCapacity && selectedLot.currentCapacity !== undefined && selectedLot.currentCapacity !== null && (
                   <LotCapacityAlert
-                    currentCapacity={selectedLot.currentCapacity}
-                    maxCapacity={selectedLot.maxCapacity}
+                    currentCapacity={selectedLot.currentCapacity ?? 0}
+                    maxCapacity={selectedLot.maxCapacity ?? 0}
                     showAvailable
                     variant="info"
                   />
                 )}
 
-                <NumberInput
-                  label="Total Quantity"
-                  placeholder="100"
-                  required
-                  value={totalQuantity}
-                  onChange={(value) => {
-                    const num = Number(value);
-                    setTotalQuantity(num);
-                    // Automatically set available quantity to match total quantity
-                    setAvailableQuantity(num);
-                  }}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="total-qty">Total Quantity *</Label>
+                  <Input
+                    id="total-qty"
+                    type="number"
+                    placeholder="100"
+                    value={totalQuantity}
+                    onChange={(e) => {
+                      setTotalQuantity(e.target.value);
+                      setAvailableQuantity(e.target.value);
+                    }}
+                  />
+                </div>
 
-                {selectedLot && selectedLot.maxCapacity && selectedLot.currentCapacity !== undefined && totalQuantity > 0 && (
+                {selectedLot && selectedLot.maxCapacity && selectedLot.currentCapacity !== undefined && selectedLot.currentCapacity !== null && parseInt(totalQuantity) > 0 && (
                   <LotCapacityStatus
-                    currentCapacity={selectedLot.currentCapacity}
-                    maxCapacity={selectedLot.maxCapacity}
-                    addingQuantity={totalQuantity}
+                    currentCapacity={selectedLot.currentCapacity ?? 0}
+                    maxCapacity={selectedLot.maxCapacity ?? 0}
+                    addingQuantity={parseInt(totalQuantity) || 0}
                   />
                 )}
 
-                <DateInput
-                  label="Expiry Date"
-                  placeholder="Select expiry date"
-                  required
-                  value={expiryDate}
-                  onChange={setExpiryDate}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="expiry-date">Expiry Date *</Label>
+                  <DatePicker
+                    date={expiryDate}
+                    onDateChange={setExpiryDate}
+                    placeholder="Select expiry date"
+                  />
+                </div>
 
-                <Textarea
-                  label="Notes (Optional)"
-                  placeholder="Any additional notes"
-                  value={unitNotes}
-                  onChange={(e) => setUnitNotes(e.target.value)}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="unit-notes">Notes (Optional)</Label>
+                  <Textarea
+                    id="unit-notes"
+                    placeholder="Any additional notes"
+                    value={unitNotes}
+                    onChange={(e) => setUnitNotes(e.target.value)}
+                  />
+                </div>
 
-                <Group justify="space-between" mt="xl">
-                  <Button 
-                    variant="default" 
-                    onClick={prevStep}
-                  >
+                <div className="flex justify-between mt-6">
+                  <Button variant="outline" onClick={prevStep}>
                     Previous
                   </Button>
-                  <Button 
-                    onClick={handleCreateUnit} 
-                    loading={creatingUnit}
-                    disabled={!isStep3Valid()}
-                  >
+                  <Button onClick={handleCreateUnit} disabled={!isStep3Valid() || creatingUnit}>
+                    {creatingUnit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Unit
                   </Button>
-                </Group>
-              </Stack>
+                </div>
+              </CardContent>
             </Card>
-          </Stepper.Step>
+          </Step>
         </Stepper>
 
-        <Modal
-          opened={showQRModal}
-          onClose={() => setShowQRModal(false)}
-          title="Unit Created Successfully"
-          centered
-          size="lg"
-        >
-          <Stack>
-            <Alert color="green" variant="light">
-              Unit has been added to inventory. Print the label below and attach it to the medication.
-            </Alert>
-            
-            {/* Printable Label */}
-            <Center>
-              <div ref={printRef}>
-                <div style={{ 
-                  display: 'flex', 
-                  border: '1px solid #ddd', 
-                  padding: '12px',
-                  backgroundColor: 'white',
-                  fontFamily: 'Arial, sans-serif',
-                  width: '384px',
-                  height: '192px',
-                  boxSizing: 'border-box',
-                }}>
-                  {/* QR Code - Left Side */}
+        {/* Success Modal with QR Code */}
+        <Dialog open={showQRModal} onOpenChange={setShowQRModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Unit Created Successfully</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Alert>
+                <AlertDescription>
+                  Unit has been added to inventory. Print the label below and attach it to the medication.
+                </AlertDescription>
+              </Alert>
+              
+              {/* Printable Label */}
+              <div className="flex justify-center">
+                <div ref={printRef}>
                   <div style={{ 
                     display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingRight: '12px',
-                    borderRight: '1px solid #ddd',
-                    minWidth: '130px',
+                    border: '1px solid #ddd', 
+                    padding: '12px',
+                    backgroundColor: 'white',
+                    fontFamily: 'Arial, sans-serif',
+                    width: '384px',
+                    height: '192px',
+                    boxSizing: 'border-box',
                   }}>
-                    <QRCodeSVG value={createdUnitId} size={100} level="H" />
-                    <div style={{ fontSize: '6px', marginTop: '4px', textAlign: 'center', wordBreak: 'break-all', maxWidth: '100px', lineHeight: 1.2 }}>
-                      {createdUnitId}
-                    </div>
-                  </div>
-                  
-                  {/* Label Information - Right Side (US Medicine Labelling) */}
-                  <div style={{ 
-                    flex: 1, 
-                    paddingLeft: '12px',
-                    fontSize: '9px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                  }}>
-                    {/* Drug Name - Most Prominent */}
-                    <div style={{ fontSize: '12px', fontWeight: 'bold', lineHeight: 1.1, marginBottom: '1px' }}>
-                      {selectedDrug?.medicationName || manualDrug.medicationName}
-                    </div>
-                    <div style={{ fontSize: '9px', color: '#666', marginBottom: '3px' }}>
-                      ({selectedDrug?.genericName || manualDrug.genericName})
-                    </div>
-                    
-                    {/* Strength and Form */}
-                    <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '3px' }}>
-                      {selectedDrug?.strength || manualDrug.strength} {selectedDrug?.strengthUnit || manualDrug.strengthUnit} - {selectedDrug?.form || manualDrug.form}
-                    </div>
-                    
-                    {/* NDC */}
-                    <div style={{ marginBottom: '2px' }}>
-                      <span style={{ fontWeight: '600' }}>NDC: </span>
-                      {selectedDrug?.ndcId || manualDrug.ndcId}
-                    </div>
-                    
-                    {/* Quantity */}
-                    <div style={{ marginBottom: '2px' }}>
-                      <span style={{ fontWeight: '600' }}>Qty: </span>
-                      {totalQuantity}
-                    </div>
-                    
-                    {/* Expiry - Required by US Law */}
-                    <div style={{ marginBottom: '2px' }}>
-                      <span style={{ fontWeight: '600' }}>EXP: </span>
-                      {expiryDate ? new Date(expiryDate).toLocaleDateString('en-US', { month: '2-digit', year: 'numeric' }) : 'N/A'}
-                    </div>
-                    
-                    {/* Lot/Source */}
-                    <div style={{ marginBottom: '2px' }}>
-                      <span style={{ fontWeight: '600' }}>LOT: </span>
-                      {lotSource || 'N/A'}
-                    </div>
-                    
-                    {/* Footer - Organization */}
+                    {/* QR Code - Left Side */}
                     <div style={{ 
-                      fontSize: '7px', 
-                      color: '#888', 
-                      marginTop: 'auto',
-                      borderTop: '1px solid #eee',
-                      paddingTop: '2px',
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingRight: '12px',
+                      borderRight: '1px solid #ddd',
+                      minWidth: '130px',
                     }}>
-                      DaanaRX • For Clinic Use Only
+                      <QRCodeSVG value={createdUnitId} size={100} level="H" />
+                      <div style={{ fontSize: '6px', marginTop: '4px', textAlign: 'center', wordBreak: 'break-all', maxWidth: '100px', lineHeight: 1.2 }}>
+                        {createdUnitId}
+                      </div>
+                    </div>
+                    
+                    {/* Label Information - Right Side */}
+                    <div style={{ 
+                      flex: 1, 
+                      paddingLeft: '12px',
+                      fontSize: '9px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{ fontSize: '12px', fontWeight: 'bold', lineHeight: 1.1, marginBottom: '1px' }}>
+                        {selectedDrug?.medicationName || manualDrug.medicationName}
+                      </div>
+                      <div style={{ fontSize: '9px', color: '#666', marginBottom: '3px' }}>
+                        ({selectedDrug?.genericName || manualDrug.genericName})
+                      </div>
+                      
+                      <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '3px' }}>
+                        {selectedDrug?.strength || manualDrug.strength} {selectedDrug?.strengthUnit || manualDrug.strengthUnit} - {selectedDrug?.form || manualDrug.form}
+                      </div>
+                      
+                      <div style={{ marginBottom: '2px' }}>
+                        <span style={{ fontWeight: '600' }}>NDC: </span>
+                        {selectedDrug?.ndcId || manualDrug.ndcId}
+                      </div>
+                      
+                      <div style={{ marginBottom: '2px' }}>
+                        <span style={{ fontWeight: '600' }}>Qty: </span>
+                        {totalQuantity}
+                      </div>
+                      
+                      <div style={{ marginBottom: '2px' }}>
+                        <span style={{ fontWeight: '600' }}>EXP: </span>
+                        {expiryDate ? new Date(expiryDate).toLocaleDateString('en-US', { month: '2-digit', year: 'numeric' }) : 'N/A'}
+                      </div>
+                      
+                      <div style={{ marginBottom: '2px' }}>
+                        <span style={{ fontWeight: '600' }}>LOT: </span>
+                        {lotSource || 'N/A'}
+                      </div>
+                      
+                      <div style={{ 
+                        fontSize: '7px', 
+                        color: '#888', 
+                        marginTop: 'auto',
+                        borderTop: '1px solid #eee',
+                        paddingTop: '2px',
+                      }}>
+                        DaanaRX • For Clinic Use Only
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </Center>
-            
-            <Group justify="center">
-              <Button leftSection={<IconPrinter size={16} />} onClick={() => handlePrint()}>
-                Print Label
-              </Button>
-              <Button variant="light" onClick={handleReset}>
-                Add Another Unit
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
+              
+              <div className="flex justify-center gap-2">
+                <Button onClick={() => handlePrint()}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Label
+                </Button>
+                <Button variant="outline" onClick={handleReset}>
+                  Add Another Unit
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <BarcodeScanner
           opened={showBarcodeScanner}
@@ -966,7 +957,7 @@ export default function CheckInPage() {
           title="Scan NDC Barcode"
           description="Position the NDC barcode within the frame to search for drug information"
         />
-      </Stack>
+      </div>
     </AppShell>
   );
 }

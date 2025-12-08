@@ -1,5 +1,5 @@
-import { Alert, Text } from '@mantine/core';
-import { IconCheck, IconAlertTriangle, IconX } from '@tabler/icons-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Check, AlertTriangle, X } from 'lucide-react';
 
 interface LotCapacityStatusProps {
   currentCapacity: number;
@@ -10,6 +10,7 @@ interface LotCapacityStatusProps {
 interface CapacityStatus {
   isValid: boolean;
   message: string;
+  variant: 'default' | 'destructive';
   color: 'green' | 'yellow' | 'orange' | 'red' | 'blue';
   icon: React.ReactNode;
 }
@@ -45,8 +46,9 @@ export function LotCapacityStatus({
       return {
         isValid: true,
         message: `${currentCapacity}/${maxCapacity} units used (${available} available)`,
+        variant: 'default',
         color: 'blue',
-        icon: <IconCheck size={16} />,
+        icon: <Check className="h-4 w-4" />,
       };
     }
 
@@ -55,8 +57,9 @@ export function LotCapacityStatus({
       return {
         isValid: false,
         message: `Would exceed capacity! Max: ${maxCapacity}, Current: ${currentCapacity}, Available: ${available}`,
+        variant: 'destructive',
         color: 'red',
-        icon: <IconX size={16} />,
+        icon: <X className="h-4 w-4" />,
       };
     }
 
@@ -65,8 +68,9 @@ export function LotCapacityStatus({
       return {
         isValid: true,
         message: `Will fill lot to capacity (${newTotal}/${maxCapacity})`,
+        variant: 'default',
         color: 'orange',
-        icon: <IconAlertTriangle size={16} />,
+        icon: <AlertTriangle className="h-4 w-4" />,
       };
     }
 
@@ -79,12 +83,13 @@ export function LotCapacityStatus({
       : 'green';
 
     const icon = percentUsed >= 80 
-      ? <IconAlertTriangle size={16} />
-      : <IconCheck size={16} />;
+      ? <AlertTriangle className="h-4 w-4" />
+      : <Check className="h-4 w-4" />;
 
     return {
       isValid: true,
       message: `After adding: ${newTotal}/${maxCapacity} units (${percentUsed}% full)`,
+      variant: 'default',
       color,
       icon,
     };
@@ -93,12 +98,11 @@ export function LotCapacityStatus({
   const status = getCapacityStatus();
 
   return (
-    <Alert 
-      color={status.color} 
-      variant="light"
-      icon={status.icon}
-    >
-      {status.message}
+    <Alert variant={status.variant}>
+      {status.icon}
+      <AlertDescription>
+        {status.message}
+      </AlertDescription>
     </Alert>
   );
 }
@@ -115,4 +119,3 @@ export function useCapacityValidation(
   const newTotal = currentCapacity + addingQuantity;
   return addingQuantity > 0 && newTotal <= maxCapacity;
 }
-

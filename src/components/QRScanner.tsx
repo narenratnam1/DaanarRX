@@ -1,9 +1,19 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Modal, Button, Group, Text, Stack, Alert, TextInput } from '@mantine/core';
-import { IconQrcode, IconAlertCircle, IconKeyboard } from '@tabler/icons-react';
+import { QrCode, AlertCircle, Keyboard } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface QRScannerProps {
   opened: boolean;
@@ -217,85 +227,81 @@ export function QRScanner({
   };
 
   return (
-    <Modal
-      opened={opened}
-      onClose={handleClose}
-      title={title}
-      size="lg"
-      centered
-      closeOnClickOutside={false}
-    >
-      <Stack>
-        <Text size="sm" c="dimmed">
-          {description}
-        </Text>
+    <Dialog open={opened} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="sm:max-w-[600px]" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
 
-        {error && (
-          <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-            {error}
-          </Alert>
-        )}
+        <div className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-        {!showManualInput ? (
-          <>
-            <div
-              id="qr-reader"
-              style={{
-                width: '100%',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                minHeight: '300px',
-              }}
-            />
+          {!showManualInput ? (
+            <>
+              <div
+                id="qr-reader"
+                className="w-full min-h-[300px] rounded-lg overflow-hidden"
+              />
 
-            <Group justify="space-between">
-              <Button
-                variant="subtle"
-                leftSection={<IconKeyboard size={16} />}
-                onClick={handleSwitchToManual}
-              >
-                Manual Entry
-              </Button>
-              <Button onClick={handleClose}>
-                Cancel
-              </Button>
-            </Group>
-          </>
-        ) : (
-          <>
-            <TextInput
-              label="Unit ID"
-              placeholder="Enter unit ID manually"
-              value={manualCode}
-              onChange={(e) => setManualCode(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleManualSubmit();
-                }
-              }}
-              autoFocus
-            />
-
-            <Group justify="space-between">
-              <Button
-                variant="subtle"
-                leftSection={<IconQrcode size={16} />}
-                onClick={handleSwitchToScanner}
-              >
-                Back to Scanner
-              </Button>
-              <Group>
-                <Button variant="light" onClick={handleManualSubmit}>
-                  Submit
+              <div className="flex justify-between">
+                <Button
+                  variant="ghost"
+                  onClick={handleSwitchToManual}
+                >
+                  <Keyboard className="mr-2 h-4 w-4" />
+                  Manual Entry
                 </Button>
-                <Button onClick={handleClose}>
+                <Button variant="outline" onClick={handleClose}>
                   Cancel
                 </Button>
-              </Group>
-            </Group>
-          </>
-        )}
-      </Stack>
-    </Modal>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="manual-code">Unit ID</Label>
+                <Input
+                  id="manual-code"
+                  placeholder="Enter unit ID manually"
+                  value={manualCode}
+                  onChange={(e) => setManualCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleManualSubmit();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-between">
+                <Button
+                  variant="ghost"
+                  onClick={handleSwitchToScanner}
+                >
+                  <QrCode className="mr-2 h-4 w-4" />
+                  Back to Scanner
+                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={handleManualSubmit}>
+                    Submit
+                  </Button>
+                  <Button variant="outline" onClick={handleClose}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

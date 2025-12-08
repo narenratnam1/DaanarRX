@@ -3,24 +3,16 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDispatch } from 'react-redux';
-import { 
-  TextInput, 
-  PasswordInput, 
-  Button, 
-  Paper, 
-  Title, 
-  Container, 
-  Text, 
-  Anchor, 
-  Stack,
-  Alert,
-  Loader,
-  Center
-} from '@mantine/core';
-import { IconInfoCircle } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useLazyQuery, gql } from '@apollo/client';
 import { setAuth } from '../../../store/authSlice';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
+import { AlertCircle, Info, Loader2, Package, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
 
 const CHECK_EMAIL_EXISTS = gql`
   query CheckEmailExists($email: String!) {
@@ -111,6 +103,7 @@ function SignUpContent() {
 function AcceptInvitationForm({ invitationToken }: { invitationToken: string }) {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { toast } = useToast();
   const [password, setPassword] = useState('');
 
   const { data: invitationData, loading: invitationLoading, error: invitationError } = useQuery(
@@ -131,19 +124,18 @@ function AcceptInvitationForm({ invitationToken }: { invitationToken: string }) 
         })
       );
 
-      notifications.show({
+      toast({
         title: 'Success',
-        message: 'Welcome to DaanaRX!',
-        color: 'green',
+        description: 'Welcome to DaanaRX!',
       });
 
       router.push('/');
     },
     onError: (error) => {
-      notifications.show({
+      toast({
         title: 'Error',
-        message: error.message || 'Failed to accept invitation',
-        color: 'red',
+        description: error.message || 'Failed to accept invitation',
+        variant: 'destructive',
       });
     },
   });
@@ -162,105 +154,161 @@ function AcceptInvitationForm({ invitationToken }: { invitationToken: string }) 
 
   if (invitationLoading) {
     return (
-      <Container size={420} my={40}>
-        <Center>
-          <Loader size="lg" />
-        </Center>
-        <Text ta="center" mt="md" c="dimmed">
-          Loading invitation...
-        </Text>
-      </Container>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="mt-4 text-sm text-muted-foreground">Loading invitation...</p>
+        </div>
+      </div>
     );
   }
 
   if (invitationError || !invitationData?.getInvitationByToken) {
     return (
-      <Container size={420} my={40}>
-        <Title ta="center" mb="md">
-          DaanaRX
-        </Title>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-12 dark:from-gray-900 dark:to-gray-800">
+        <div className="w-full max-w-md">
+          <div className="flex flex-col items-center space-y-2 text-center mb-8">
+            <div className="rounded-full bg-primary p-3">
+              <Package className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight">DaanaRX</h1>
+          </div>
 
-        <Paper withBorder shadow="md" p={30} radius="md">
-          <Alert icon={<IconInfoCircle size={16} />} title="Invalid Invitation" color="red">
-            This invitation link is invalid or has expired. Please contact your administrator for a
-            new invitation.
-          </Alert>
-
-          <Button
-            fullWidth
-            mt="md"
-            variant="outline"
-            onClick={() => router.push('/auth/signin')}
-          >
-            Go to Sign In
-          </Button>
-        </Paper>
-      </Container>
+          <Card className="border-2 shadow-lg">
+            <CardHeader>
+              <CardTitle>Invalid Invitation</CardTitle>
+              <CardDescription>We couldn&apos;t find your invitation</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Invitation Error</AlertTitle>
+                <AlertDescription>
+                  This invitation link is invalid or has expired. Please contact your administrator for a
+                  new invitation.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => router.push('/auth/signin')}
+              >
+                Go to Sign In
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
     );
   }
 
   const invitation = invitationData.getInvitationByToken;
 
   return (
-    <Container size={420} my={40}>
-      <Title ta="center" mb="md">
-        DaanaRx
-      </Title>
-      <Text c="dimmed" size="sm" ta="center" mb="xl">
-        Complete your account setup
-      </Text>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-12 dark:from-gray-900 dark:to-gray-800">
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center space-y-2 text-center">
+          <div className="rounded-full bg-primary p-3">
+            <Package className="h-8 w-8 text-primary-foreground" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">DaanaRX</h1>
+          <p className="text-muted-foreground">Complete your account setup</p>
+        </div>
 
-      <Paper withBorder shadow="md" p={30} radius="md">
-        <Alert icon={<IconInfoCircle size={16} />} title="You've been invited!" color="blue" mb="lg">
-          <Text size="sm">
-            <strong>{invitation.invitedByUser.username}</strong> has invited you to join{' '}
-            <strong>{invitation.clinic?.name || 'the clinic'}</strong> as a{' '}
-            <strong>{invitation.userRole}</strong>.
-          </Text>
-        </Alert>
+        <Card className="border-2 shadow-lg">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold">You&apos;ve been invited!</CardTitle>
+            <CardDescription>Set up your account to get started</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>Invitation Details</AlertTitle>
+              <AlertDescription className="mt-2 space-y-1">
+                <p className="text-sm">
+                  <strong>{invitation.invitedByUser.username}</strong> has invited you to join{' '}
+                  <strong>{invitation.clinic?.name || 'the clinic'}</strong> as a{' '}
+                  <strong className="capitalize">{invitation.userRole}</strong>.
+                </p>
+              </AlertDescription>
+            </Alert>
 
-        <form onSubmit={handleSubmit}>
-          <Stack>
-            <TextInput
-              label="Clinic Name"
-              value={invitation.clinic?.name || ''}
-              disabled
-              description="You're joining this clinic"
-            />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="clinic">Clinic Name</Label>
+                <Input
+                  id="clinic"
+                  value={invitation.clinic?.name || ''}
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">You&apos;re joining this clinic</p>
+              </div>
 
-            <TextInput
-              label="Email"
-              value={invitation.email}
-              disabled
-              description="Your account email address"
-            />
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={invitation.email}
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">Your account email address</p>
+              </div>
 
-            <PasswordInput
-              label="Create Password"
-              placeholder="Choose a secure password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              description="Choose a strong password to secure your account"
-            />
+              <div className="space-y-2">
+                <Label htmlFor="password">Create Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Choose a secure password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="h-11"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Choose a strong password to secure your account
+                </p>
+              </div>
 
-            <Button type="submit" fullWidth loading={loading} mt="md">
-              Complete Sign Up
-            </Button>
-
-            <Text size="xs" c="dimmed" ta="center">
+              <Button 
+                type="submit" 
+                className="w-full h-11 text-base" 
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Complete Sign Up
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="flex flex-col">
+            <p className="text-xs text-center text-muted-foreground">
               By signing up, you agree to join the clinic and follow their policies.
-            </Text>
-          </Stack>
-        </form>
-      </Paper>
-    </Container>
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
+    </div>
   );
 }
 
 function RegularSignUpForm() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [clinicName, setClinicName] = useState('');
@@ -272,10 +320,9 @@ function RegularSignUpForm() {
       setEmailExists(exists);
 
       if (exists) {
-        notifications.show({
+        toast({
           title: 'Account exists',
-          message: 'An account with this email already exists. Please sign in instead.',
-          color: 'blue',
+          description: 'An account with this email already exists. Please sign in instead.',
         });
       }
     },
@@ -294,19 +341,18 @@ function RegularSignUpForm() {
         })
       );
 
-      notifications.show({
+      toast({
         title: 'Success',
-        message: 'Account created successfully',
-        color: 'green',
+        description: 'Account created successfully',
       });
 
       router.push('/');
     },
     onError: (error) => {
-      notifications.show({
+      toast({
         title: 'Error',
-        message: error.message || 'Failed to create account',
-        color: 'red',
+        description: error.message || 'Failed to create account',
+        variant: 'destructive',
       });
     },
   });
@@ -320,7 +366,6 @@ function RegularSignUpForm() {
     e.preventDefault();
 
     if (emailExists) {
-      // Redirect to sign in
       router.push('/auth/signin');
       return;
     }
@@ -329,61 +374,101 @@ function RegularSignUpForm() {
   };
 
   return (
-    <Container size={420} my={40}>
-      <Title ta="center" mb="md">
-        DaanaRx
-      </Title>
-      <Text c="dimmed" size="sm" ta="center" mb="xl">
-        Create your clinic account
-      </Text>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-12 dark:from-gray-900 dark:to-gray-800">
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center space-y-2 text-center">
+          <div className="rounded-full bg-primary p-3">
+            <Package className="h-8 w-8 text-primary-foreground" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">DaanaRX</h1>
+          <p className="text-muted-foreground">Create your clinic account</p>
+        </div>
 
-      <Paper withBorder shadow="md" p={30} radius="md">
-        <form onSubmit={handleSubmit}>
-          <Stack>
-            <TextInput
-              label="Clinic Name"
-              placeholder="Your Clinic Name"
-              required
-              value={clinicName}
-              onChange={(e) => setClinicName(e.target.value)}
-            />
+        <Card className="border-2 shadow-lg">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold">Get started</CardTitle>
+            <CardDescription>Create your account to start tracking medications</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="clinicName">Clinic Name</Label>
+                <Input
+                  id="clinicName"
+                  placeholder="Your Clinic Name"
+                  value={clinicName}
+                  onChange={(e) => setClinicName(e.target.value)}
+                  required
+                  className="h-11"
+                />
+              </div>
 
-            <TextInput
-              label="Email"
-              placeholder="your@email.com"
-              required
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setEmailExists(false);
-              }}
-              onBlur={handleEmailBlur}
-              error={emailExists ? 'This email is already registered. Please sign in instead.' : undefined}
-            />
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailExists(false);
+                  }}
+                  onBlur={handleEmailBlur}
+                  required
+                  className="h-11"
+                />
+                {emailExists && (
+                  <p className="text-sm text-destructive">
+                    This email is already registered. Please sign in instead.
+                  </p>
+                )}
+              </div>
 
-            <PasswordInput
-              label="Password"
-              placeholder="Create a password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Create a password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="h-11"
+                />
+              </div>
 
-            <Button type="submit" fullWidth loading={loading}>
-              Create Account
-            </Button>
-
-            <Text size="sm" ta="center">
+              <Button 
+                type="submit" 
+                className="w-full h-11 text-base" 
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <div className="text-center text-sm text-muted-foreground">
               Already have an account?{' '}
-              <Anchor href="/auth/signin" size="sm">
+              <Link href="/auth/signin" className="font-medium text-primary hover:underline">
                 Sign in
-              </Anchor>
-            </Text>
-          </Stack>
-        </form>
-      </Paper>
-    </Container>
+              </Link>
+            </div>
+          </CardFooter>
+        </Card>
+
+        <p className="text-center text-xs text-muted-foreground">
+          HIPAA-compliant medication tracking for non-profit clinics
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -391,11 +476,9 @@ export default function SignUpPage() {
   return (
     <Suspense
       fallback={
-        <Container size={420} my={40}>
-          <Center>
-            <Loader size="lg" />
-          </Center>
-        </Container>
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       }
     >
       <SignUpContent />

@@ -3,26 +3,27 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useLazyQuery, useMutation, useQuery, gql } from '@apollo/client';
-import {
-  Stack,
-  Title,
-  Text,
-  Card,
-  Button,
-  TextInput,
-  NumberInput,
-  Textarea,
-  Group,
-  Table,
-  Badge,
-  Alert,
-} from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { QrCodeIcon, AlertCircle, Loader2 } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/PageHeader';
 import { QRScanner } from '../../components/QRScanner';
 import { GetUnitResponse, SearchUnitsResponse, UnitData } from '../../types/graphql';
-import { IconQrcode, IconAlertCircle } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
 
 const GET_UNIT = gql`
   query GetUnit($unitId: ID!) {
@@ -84,9 +85,10 @@ const CHECK_OUT_UNIT = gql`
 
 function CheckOutContent() {
   const searchParams = useSearchParams();
+  const { toast } = useToast();
   const [unitId, setUnitId] = useState('');
   const [selectedUnit, setSelectedUnit] = useState<UnitData | null>(null);
-  const [quantity, setQuantity] = useState<number>(0);
+  const [quantity, setQuantity] = useState<string>('');
   const [patientName, setPatientName] = useState('');
   const [patientReference, setPatientReference] = useState('');
   const [notes, setNotes] = useState('');
@@ -100,18 +102,17 @@ function CheckOutContent() {
     onCompleted: (data) => {
       if (data.getUnit) {
         setSelectedUnit(data.getUnit);
-        notifications.show({
+        toast({
           title: 'Unit Found',
-          message: `${data.getUnit.drug.medicationName} - ${data.getUnit.availableQuantity} available`,
-          color: 'green',
+          description: `${data.getUnit.drug.medicationName} - ${data.getUnit.availableQuantity} available`,
         });
       }
     },
     onError: () => {
-      notifications.show({
+      toast({
         title: 'Error',
-        message: 'Unit not found',
-        color: 'red',
+        description: 'Unit not found',
+        variant: 'destructive',
       });
     },
   });
@@ -120,18 +121,17 @@ function CheckOutContent() {
 
   const [checkOut, { loading: checkingOut }] = useMutation(CHECK_OUT_UNIT, {
     onCompleted: () => {
-      notifications.show({
+      toast({
         title: 'Success',
-        message: 'Unit checked out successfully',
-        color: 'green',
+        description: 'Unit checked out successfully',
       });
       handleReset();
     },
     onError: (error) => {
-      notifications.show({
+      toast({
         title: 'Error',
-        message: error.message,
-        color: 'red',
+        description: error.message,
+        variant: 'destructive',
       });
     },
   });
@@ -154,20 +154,21 @@ function CheckOutContent() {
   };
 
   const handleCheckOut = () => {
-    if (!selectedUnit || quantity <= 0) {
-      notifications.show({
+    const qty = parseInt(quantity, 10);
+    if (!selectedUnit || isNaN(qty) || qty <= 0) {
+      toast({
         title: 'Error',
-        message: 'Please enter valid quantity',
-        color: 'red',
+        description: 'Please enter valid quantity',
+        variant: 'destructive',
       });
       return;
     }
 
-    if (quantity > selectedUnit.availableQuantity) {
-      notifications.show({
+    if (qty > selectedUnit.availableQuantity) {
+      toast({
         title: 'Error',
-        message: `Insufficient quantity. Available: ${selectedUnit.availableQuantity}`,
-        color: 'red',
+        description: `Insufficient quantity. Available: ${selectedUnit.availableQuantity}`,
+        variant: 'destructive',
       });
       return;
     }
@@ -176,7 +177,7 @@ function CheckOutContent() {
       variables: {
         input: {
           unitId: selectedUnit.unitId,
-          quantity,
+          quantity: qty,
           patientName: patientName || undefined,
           patientReferenceId: patientReference || undefined,
           notes: notes || undefined,
@@ -188,7 +189,7 @@ function CheckOutContent() {
   const handleReset = () => {
     setUnitId('');
     setSelectedUnit(null);
-    setQuantity(0);
+    setQuantity('');
     setPatientName('');
     setPatientReference('');
     setNotes('');
@@ -200,7 +201,7 @@ function CheckOutContent() {
     getUnit({ variables: { unitId: code } });
   };
 
-  // Auto-populate unitId from URL params (e.g., from Quick Check-Out button)
+  // Auto-populate unitId from URL params
   useEffect(() => {
     const unitIdParam = searchParams?.get('unitId');
     if (unitIdParam) {
@@ -211,201 +212,215 @@ function CheckOutContent() {
 
   return (
     <AppShell>
-      <Stack gap="xl">
-        <PageHeader title="Check Out" description="Dispense medications to patients" />
+      <div className="space-y-6">
+        <PageHeader title="Check Out" description="Dispense medications to patients" showBackButton={false} />
 
         {!loadingStats && !hasInventory && (
-          <Alert icon={<IconAlertCircle size={16} />} title="No Inventory" color="yellow" variant="filled">
-            There are no medications in your inventory. Please check in medications before checking them out.
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>No Inventory</AlertTitle>
+            <AlertDescription>
+              There are no medications in your inventory. Please check in medications before checking them out.
+            </AlertDescription>
           </Alert>
         )}
 
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Stack>
-            <Group>
-              <Button
-                leftSection={<IconQrcode size={16} />}
-                onClick={() => setShowQRScanner(true)}
-                fullWidth
-              >
-                Scan QR Code
-              </Button>
-            </Group>
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowQRScanner(true)}
+              className="w-full"
+            >
+              <QrCodeIcon className="mr-2 h-4 w-4" />
+              Scan QR Code
+            </Button>
 
-            <Group align="flex-end" gap="xs">
-              <TextInput
-                label="Search by Unit ID, Generic Name, or Strength"
-                placeholder="Enter unit ID, generic name (e.g., Lisinopril), or strength (e.g., 10)"
-                value={unitId}
-                onChange={(e) => setUnitId(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSearch();
-                  }
-                }}
-                style={{ flex: 1 }}
-                description="Search by unit ID, medication generic name, or strength value"
-              />
-              <Button onClick={handleSearch} loading={loadingUnit}>
+            <div className="flex gap-2">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="unit-search">Search by Unit ID, Generic Name, or Strength</Label>
+                <Input
+                  id="unit-search"
+                  placeholder="Enter unit ID, generic name (e.g., Lisinopril), or strength (e.g., 10)"
+                  value={unitId}
+                  onChange={(e) => setUnitId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch();
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Search by unit ID, medication generic name, or strength value
+                </p>
+              </div>
+              <Button onClick={handleSearch} disabled={loadingUnit} className="mt-8">
+                {loadingUnit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Search
               </Button>
-            </Group>
+            </div>
 
             {searchData?.searchUnitsByQuery && searchData.searchUnitsByQuery.length > 0 && (
-              <Card withBorder>
-                <Title order={5} mb="sm">
-                  Search Results
-                </Title>
-                <Table>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Medication</Table.Th>
-                      <Table.Th>Generic Name</Table.Th>
-                      <Table.Th>Strength</Table.Th>
-                      <Table.Th>Available</Table.Th>
-                      <Table.Th>Expiry</Table.Th>
-                      <Table.Th>Action</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {searchData.searchUnitsByQuery.map((unit: UnitData) => (
-                      <Table.Tr key={unit.unitId}>
-                        <Table.Td>{unit.drug.medicationName}</Table.Td>
-                        <Table.Td>{unit.drug.genericName}</Table.Td>
-                        <Table.Td>
-                          {unit.drug.strength} {unit.drug.strengthUnit}
-                        </Table.Td>
-                        <Table.Td>{unit.availableQuantity}</Table.Td>
-                        <Table.Td>{new Date(unit.expiryDate).toLocaleDateString()}</Table.Td>
-                        <Table.Td>
-                          <Button size="xs" onClick={() => handleSelectUnit(unit)}>
-                            Select
-                          </Button>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Search Results</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Medication</TableHead>
+                          <TableHead>Generic Name</TableHead>
+                          <TableHead>Strength</TableHead>
+                          <TableHead>Available</TableHead>
+                          <TableHead>Expiry</TableHead>
+                          <TableHead>Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {searchData.searchUnitsByQuery.map((unit: UnitData) => (
+                          <TableRow key={unit.unitId}>
+                            <TableCell className="font-medium">{unit.drug.medicationName}</TableCell>
+                            <TableCell>{unit.drug.genericName}</TableCell>
+                            <TableCell>
+                              {unit.drug.strength} {unit.drug.strengthUnit}
+                            </TableCell>
+                            <TableCell>{unit.availableQuantity}</TableCell>
+                            <TableCell>{new Date(unit.expiryDate).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              <Button size="sm" onClick={() => handleSelectUnit(unit)}>
+                                Select
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
               </Card>
             )}
-          </Stack>
+          </CardContent>
         </Card>
 
         {selectedUnit && (
-          <Card shadow="sm" padding="lg" radius="md" withBorder>
-            <Stack>
-              <Group justify="apart">
-                <Title order={3}>Unit Details</Title>
-                <Badge
-                  color={selectedUnit.availableQuantity > 0 ? 'green' : 'red'}
-                  size="lg"
-                >
+          <Card>
+            <CardContent className="pt-6 space-y-6">
+              <div className="flex items-start justify-between">
+                <h3 className="text-2xl font-bold">Unit Details</h3>
+                <Badge variant={selectedUnit.availableQuantity > 0 ? 'default' : 'destructive'} className="text-lg px-3 py-1">
                   {selectedUnit.availableQuantity} Available
                 </Badge>
-              </Group>
+              </div>
 
-              <Card withBorder p="sm" bg="blue.0">
-                <Stack gap="xs">
-                  <Text fw={700} size="lg">
-                    {selectedUnit.drug.medicationName}
-                  </Text>
-                  <Text size="sm" c="dimmed">
+              <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+                <CardContent className="pt-4 space-y-2">
+                  <h4 className="text-lg font-bold">{selectedUnit.drug.medicationName}</h4>
+                  <p className="text-sm text-muted-foreground">
                     Generic: {selectedUnit.drug.genericName}
-                  </Text>
-                  <Group gap="xs">
-                    <Text size="sm">Strength:</Text>
-                    <Badge color="gray" variant="outline" size="md">
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Strength:</span>
+                    <Badge variant="outline">
                       {selectedUnit.drug.strength} {selectedUnit.drug.strengthUnit}
                     </Badge>
-                  </Group>
-                  <Text size="sm">Form: {selectedUnit.drug.form}</Text>
+                  </div>
+                  <p className="text-sm">Form: {selectedUnit.drug.form}</p>
                   {selectedUnit.drug.ndcId && (
-                    <Text size="sm">NDC: {selectedUnit.drug.ndcId}</Text>
+                    <p className="text-sm font-mono">NDC: {selectedUnit.drug.ndcId}</p>
                   )}
-                </Stack>
+                </CardContent>
               </Card>
 
-              <Group grow>
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Text size="sm" c="dimmed">
-                    Total Quantity
-                  </Text>
-                  <Badge color="blue" size="lg" variant="filled">
+                  <p className="text-sm text-muted-foreground mb-1">Total Quantity</p>
+                  <Badge variant="secondary" className="text-base px-3 py-1">
                     {selectedUnit.totalQuantity}
                   </Badge>
                 </div>
                 <div>
-                  <Text size="sm" c="dimmed">
-                    Expiry Date
-                  </Text>
+                  <p className="text-sm text-muted-foreground mb-1">Expiry Date</p>
                   <Badge 
-                    color={new Date(selectedUnit.expiryDate) < new Date() ? 'red' : 'gray'} 
-                    size="lg"
+                    variant={new Date(selectedUnit.expiryDate) < new Date() ? 'destructive' : 'secondary'}
+                    className="text-base px-3 py-1"
                   >
                     {new Date(selectedUnit.expiryDate).toLocaleDateString()}
                   </Badge>
                 </div>
                 <div>
-                  <Text size="sm" c="dimmed">
-                    Source
-                  </Text>
-                  <Text fw={700}>{selectedUnit.lot?.source}</Text>
+                  <p className="text-sm text-muted-foreground mb-1">Source</p>
+                  <p className="font-bold">{selectedUnit.lot?.source}</p>
                 </div>
-              </Group>
+              </div>
 
               {selectedUnit.optionalNotes && (
                 <div>
-                  <Text size="sm" c="dimmed">
-                    Notes
-                  </Text>
-                  <Text>{selectedUnit.optionalNotes}</Text>
+                  <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                  <p className="text-sm">{selectedUnit.optionalNotes}</p>
                 </div>
               )}
 
-              <Title order={4} mt="md">
-                Dispense Medication
-              </Title>
+              <div className="pt-4">
+                <h4 className="text-lg font-semibold mb-4">Dispense Medication</h4>
 
-              <NumberInput
-                label="Quantity to Dispense"
-                placeholder="Enter quantity"
-                required
-                min={1}
-                max={selectedUnit.availableQuantity}
-                value={quantity}
-                onChange={(value) => setQuantity(Number(value))}
-              />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="quantity">Quantity to Dispense *</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      placeholder="Enter quantity"
+                      min={1}
+                      max={selectedUnit.availableQuantity}
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                    />
+                  </div>
 
-              <TextInput
-                label="Patient Name (Optional)"
-                placeholder="Enter patient or recipient name"
-                value={patientName}
-                onChange={(e) => setPatientName(e.target.value)}
-              />
+                  <div className="space-y-2">
+                    <Label htmlFor="patient-name">Patient Name (Optional)</Label>
+                    <Input
+                      id="patient-name"
+                      placeholder="Enter patient or recipient name"
+                      value={patientName}
+                      onChange={(e) => setPatientName(e.target.value)}
+                    />
+                  </div>
 
-              <TextInput
-                label="Patient Reference ID (Optional)"
-                placeholder="Patient identifier or code"
-                value={patientReference}
-                onChange={(e) => setPatientReference(e.target.value)}
-              />
+                  <div className="space-y-2">
+                    <Label htmlFor="patient-ref">Patient Reference ID (Optional)</Label>
+                    <Input
+                      id="patient-ref"
+                      placeholder="Patient identifier or code"
+                      value={patientReference}
+                      onChange={(e) => setPatientReference(e.target.value)}
+                    />
+                  </div>
 
-              <Textarea
-                label="Notes (Optional)"
-                placeholder="Any additional notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
+                  <div className="space-y-2">
+                    <Label htmlFor="checkout-notes">Notes (Optional)</Label>
+                    <Textarea
+                      id="checkout-notes"
+                      placeholder="Any additional notes"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                    />
+                  </div>
 
-              <Group>
-                <Button onClick={handleCheckOut} loading={checkingOut}>
-                  Check Out
-                </Button>
-                <Button variant="light" onClick={handleReset}>
-                  Cancel
-                </Button>
-              </Group>
-            </Stack>
+                  <div className="flex gap-2">
+                    <Button onClick={handleCheckOut} disabled={checkingOut}>
+                      {checkingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Check Out
+                    </Button>
+                    <Button variant="outline" onClick={handleReset}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
           </Card>
         )}
 
@@ -416,14 +431,18 @@ function CheckOutContent() {
           title="Scan DaanaRX QR Code"
           description="Scan the QR code on the medication unit to check it out"
         />
-      </Stack>
+      </div>
     </AppShell>
   );
 }
 
 export default function CheckOutPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
       <CheckOutContent />
     </Suspense>
   );

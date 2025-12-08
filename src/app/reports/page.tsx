@@ -2,25 +2,37 @@
 
 import { useState } from 'react';
 import { useQuery, gql } from '@apollo/client';
-import {
-  Stack,
-  Text,
-  Card,
-  Table,
-  TextInput,
-  Badge,
-  Pagination,
-  Group,
-  Loader,
-  Center,
-  Modal,
-  Title,
-  Divider,
-  Alert,
-} from '@mantine/core';
-import { IconInfoCircle } from '@tabler/icons-react';
+import { Info, Loader2 } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { PageHeader } from '../../components/PageHeader';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 const GET_TRANSACTIONS = gql`
   query GetTransactions($page: Int, $pageSize: Int, $search: String) {
@@ -131,17 +143,8 @@ export default function ReportsPage() {
     setModalOpened(true);
   };
 
-  const getTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case 'check_in':
-        return 'green';
-      case 'check_out':
-        return 'blue';
-      case 'adjust':
-        return 'orange';
-      default:
-        return 'gray';
-    }
+  const getTypeBadgeVariant = (type: string): "default" | "secondary" | "outline" => {
+    return type === 'check_in' ? 'default' : type === 'check_out' ? 'secondary' : 'outline';
   };
 
   const formatDate = (dateString: string) => {
@@ -150,16 +153,19 @@ export default function ReportsPage() {
 
   return (
     <AppShell>
-      <Stack gap="xl">
-        <PageHeader title="Reports" description="Transaction logs and audit trail" />
+      <div className="space-y-6">
+        <PageHeader title="Reports" description="Transaction logs and audit trail" showBackButton={false} />
 
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Stack gap="md">
-            <Alert icon={<IconInfoCircle size={16} />} color="blue" variant="light">
-              Click on any row to view full transaction details, medication information, and timestamps.
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Click on any row to view full transaction details, medication information, and timestamps.
+              </AlertDescription>
             </Alert>
 
-            <TextInput
+            <Input
               placeholder="Search transactions (medication, user, type, quantity, notes, patient ref...)"
               value={search}
               onChange={(e) => {
@@ -167,259 +173,311 @@ export default function ReportsPage() {
                 setPage(1);
               }}
             />
-          </Stack>
+          </CardContent>
 
           {loading ? (
-            <Center h={200}>
-              <Loader />
-            </Center>
+            <div className="flex justify-center items-center h-[200px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
           ) : data?.getTransactions.transactions && data.getTransactions.transactions.length > 0 ? (
             <>
-              <Table highlightOnHover mt="md">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Date & Time</Table.Th>
-                    <Table.Th>Medication</Table.Th>
-                    <Table.Th>Type</Table.Th>
-                    <Table.Th>Quantity</Table.Th>
-                    <Table.Th>User</Table.Th>
-                    <Table.Th>Patient</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {data?.getTransactions.transactions.map((tx) => (
-                    <Table.Tr
-                      key={tx.transactionId}
-                      onClick={() => handleRowClick(tx)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <Table.Td>
-                        <Text size="sm">{formatDate(tx.timestamp)}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        {tx.unit?.drug ? (
-                          <div>
-                            <Text size="sm" fw={500}>
-                              {tx.unit.drug.medicationName}
-                            </Text>
-                            <Text size="xs" c="dimmed">
-                              {tx.unit.drug.strength} {tx.unit.drug.strengthUnit} - {tx.unit.drug.form}
-                            </Text>
-                          </div>
-                        ) : (
-                          <Text size="sm" c="dimmed">-</Text>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge color={getTypeBadgeColor(tx.type)}>
-                          {tx.type.replace('_', ' ')}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge variant="outline" color={tx.type === 'check_out' ? 'red' : 'green'}>
-                          {tx.type === 'check_out' ? `-${tx.quantity}` : `+${tx.quantity}`}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{tx.user?.username || '-'}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        {tx.patientName || tx.patientReferenceId ? (
-                          <div>
-                            {tx.patientName && <Text size="sm">{tx.patientName}</Text>}
-                            {tx.patientReferenceId && (
-                              <Text size="xs" c="dimmed">Ref: {tx.patientReferenceId}</Text>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date & Time</TableHead>
+                      <TableHead>Medication</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Patient</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.getTransactions.transactions.map((tx) => (
+                      <TableRow
+                        key={tx.transactionId}
+                        onClick={() => handleRowClick(tx)}
+                        className="cursor-pointer hover:bg-muted/50"
+                      >
+                        <TableCell className="text-sm">{formatDate(tx.timestamp)}</TableCell>
+                        <TableCell>
+                          {tx.unit?.drug ? (
+                            <div>
+                              <p className="text-sm font-medium">{tx.unit.drug.medicationName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {tx.unit.drug.strength} {tx.unit.drug.strengthUnit} - {tx.unit.drug.form}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getTypeBadgeVariant(tx.type)}>
+                            {tx.type.replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant="outline"
+                            className={cn(
+                              tx.type === 'check_out' && 'border-red-500 text-red-600',
+                              tx.type === 'check_in' && 'border-green-500 text-green-600'
                             )}
-                          </div>
-                        ) : (
-                          <Text size="sm" c="dimmed">-</Text>
-                        )}
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
+                          >
+                            {tx.type === 'check_out' ? `-${tx.quantity}` : `+${tx.quantity}`}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">{tx.user?.username || '-'}</TableCell>
+                        <TableCell>
+                          {tx.patientName || tx.patientReferenceId ? (
+                            <div>
+                              {tx.patientName && <p className="text-sm">{tx.patientName}</p>}
+                              {tx.patientReferenceId && (
+                                <p className="text-xs text-muted-foreground">Ref: {tx.patientReferenceId}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-              <Group justify="center" mt="md">
-                <Pagination total={totalPages} value={page} onChange={setPage} />
-              </Group>
+              {totalPages > 1 && (
+                <div className="flex justify-center py-4">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setPage(Math.max(1, page - 1))}
+                          className={cn(page === 1 && 'pointer-events-none opacity-50')}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const pageNum = i + 1;
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => setPage(pageNum)}
+                              isActive={page === pageNum}
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setPage(Math.min(totalPages, page + 1))}
+                          className={cn(page === totalPages && 'pointer-events-none opacity-50')}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </>
           ) : (
-            <Text c="dimmed" mt="md">No transactions found</Text>
+            <div className="py-8 text-center text-muted-foreground">
+              No transactions found
+            </div>
           )}
         </Card>
 
         {/* Transaction Details Modal */}
-        <Modal
-          opened={modalOpened}
-          onClose={() => {
-            setModalOpened(false);
-            setSelectedTransaction(null);
-          }}
-          title="Transaction Details"
-          size="lg"
-          centered
-        >
-          {selectedTransaction && (
-            <Stack gap="md">
-              {/* Action Details */}
-              <Card withBorder p="md">
-                <Title order={5} mb="sm">Action Details</Title>
-                <Stack gap="xs">
-                  <Group justify="space-between">
-                    <Text size="sm" c="dimmed">Transaction ID:</Text>
-                    <Text size="sm" ff="monospace">{selectedTransaction.transactionId}</Text>
-                  </Group>
-                  <Group justify="space-between">
-                    <Text size="sm" c="dimmed">Type:</Text>
-                    <Badge color={getTypeBadgeColor(selectedTransaction.type)} size="lg">
-                      {selectedTransaction.type.replace('_', ' ').toUpperCase()}
-                    </Badge>
-                  </Group>
-                    <Group justify="space-between">
-                      <Text size="sm" c="dimmed">Quantity:</Text>
-                      <Badge 
-                        color={selectedTransaction.type === 'check_out' ? 'red' : 'green'} 
-                        size="lg"
-                        variant="filled"
-                      >
-                        {selectedTransaction.type === 'check_out' ? '-' : '+'}{selectedTransaction.quantity}
-                      </Badge>
-                    </Group>
-                  <Group justify="space-between">
-                    <Text size="sm" c="dimmed">Performed By:</Text>
-                    <Text size="sm">{selectedTransaction.user?.username || 'Unknown'}</Text>
-                  </Group>
-                  {selectedTransaction.notes && (
-                    <>
-                      <Divider my="xs" />
-                      <Text size="sm" c="dimmed">Notes:</Text>
-                      <Text size="sm">{selectedTransaction.notes}</Text>
-                    </>
-                  )}
-                </Stack>
-              </Card>
-
-              {/* Timestamp */}
-              <Card withBorder p="md">
-                <Title order={5} mb="sm">Timestamp</Title>
-                <Stack gap="xs">
-                  <Group justify="space-between">
-                    <Text size="sm" c="dimmed">Date:</Text>
-                    <Text size="sm">{new Date(selectedTransaction.timestamp).toLocaleDateString()}</Text>
-                  </Group>
-                  <Group justify="space-between">
-                    <Text size="sm" c="dimmed">Time:</Text>
-                    <Text size="sm">{new Date(selectedTransaction.timestamp).toLocaleTimeString()}</Text>
-                  </Group>
-                  <Group justify="space-between">
-                    <Text size="sm" c="dimmed">Full Timestamp:</Text>
-                    <Text size="sm" ff="monospace">{new Date(selectedTransaction.timestamp).toISOString()}</Text>
-                  </Group>
-                </Stack>
-              </Card>
-
-              {/* Patient Information (if checkout) */}
-              {selectedTransaction.type === 'check_out' && (selectedTransaction.patientName || selectedTransaction.patientReferenceId) && (
-                <Card withBorder p="md">
-                  <Title order={5} mb="sm">Patient Information</Title>
-                  <Stack gap="xs">
-                    {selectedTransaction.patientName && (
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">Patient Name:</Text>
-                        <Text size="sm">{selectedTransaction.patientName}</Text>
-                      </Group>
-                    )}
-                    {selectedTransaction.patientReferenceId && (
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">Reference ID:</Text>
-                        <Text size="sm" ff="monospace">{selectedTransaction.patientReferenceId}</Text>
-                      </Group>
-                    )}
-                  </Stack>
-                </Card>
-              )}
-
-              {/* Medication/Unit Information */}
-              {selectedTransaction.unit && (
-                <Card withBorder p="md">
-                  <Title order={5} mb="sm">Medication Information</Title>
-                  <Stack gap="xs">
-                    <Group justify="space-between">
-                      <Text size="sm" c="dimmed">Medication:</Text>
-                      <Text size="sm" fw={600}>{selectedTransaction.unit.drug.medicationName}</Text>
-                    </Group>
-                    <Group justify="space-between">
-                      <Text size="sm" c="dimmed">Generic Name:</Text>
-                      <Text size="sm">{selectedTransaction.unit.drug.genericName}</Text>
-                    </Group>
-                    <Group justify="space-between">
-                      <Text size="sm" c="dimmed">Strength:</Text>
-                      <Badge color="gray" variant="outline" size="md">
-                        {selectedTransaction.unit.drug.strength} {selectedTransaction.unit.drug.strengthUnit}
-                      </Badge>
-                    </Group>
-                    <Group justify="space-between">
-                      <Text size="sm" c="dimmed">Form:</Text>
-                      <Text size="sm">{selectedTransaction.unit.drug.form}</Text>
-                    </Group>
-                    <Group justify="space-between">
-                      <Text size="sm" c="dimmed">NDC:</Text>
-                      <Text size="sm" ff="monospace">{selectedTransaction.unit.drug.ndcId}</Text>
-                    </Group>
-                    <Divider my="xs" />
-                    <Group justify="space-between">
-                      <Text size="sm" c="dimmed">Unit ID:</Text>
-                      <Text size="sm" ff="monospace">{selectedTransaction.unit.unitId}</Text>
-                    </Group>
-                    <Group justify="space-between">
-                      <Text size="sm" c="dimmed">Current Stock:</Text>
-                      <Badge 
-                        color={selectedTransaction.unit.availableQuantity > 0 ? 'green' : 'gray'} 
-                        size="md"
-                      >
-                        {selectedTransaction.unit.availableQuantity} / {selectedTransaction.unit.totalQuantity}
-                      </Badge>
-                    </Group>
-                    <Group justify="space-between">
-                      <Text size="sm" c="dimmed">Expiry Date:</Text>
-                      <Badge
-                        color={new Date(selectedTransaction.unit.expiryDate) < new Date() ? 'red' : 'gray'}
-                      >
-                        {new Date(selectedTransaction.unit.expiryDate).toLocaleDateString()}
-                      </Badge>
-                    </Group>
-                    {selectedTransaction.unit.lot && (
+        <Dialog open={modalOpened} onOpenChange={() => {
+          setModalOpened(false);
+          setSelectedTransaction(null);
+        }}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Transaction Details</DialogTitle>
+            </DialogHeader>
+            {selectedTransaction && (
+              <div className="space-y-4">
+                {/* Action Details */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Action Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Transaction ID:</p>
+                        <p className="text-sm font-mono">{selectedTransaction.transactionId}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Type:</p>
+                        <Badge variant={getTypeBadgeVariant(selectedTransaction.type)} className="mt-1">
+                          {selectedTransaction.type.replace('_', ' ').toUpperCase()}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Quantity:</p>
+                        <Badge 
+                          variant="outline"
+                          className={cn(
+                            selectedTransaction.type === 'check_out' && 'border-red-500 text-red-600',
+                            selectedTransaction.type === 'check_in' && 'border-green-500 text-green-600',
+                            'mt-1'
+                          )}
+                        >
+                          {selectedTransaction.type === 'check_out' ? '-' : '+'}{selectedTransaction.quantity}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Performed By:</p>
+                        <p className="text-sm">{selectedTransaction.user?.username || 'Unknown'}</p>
+                      </div>
+                    </div>
+                    {selectedTransaction.notes && (
                       <>
-                        <Divider my="xs" />
-                        <Group justify="space-between">
-                          <Text size="sm" c="dimmed">Source:</Text>
-                          <Text size="sm">{selectedTransaction.unit.lot.source}</Text>
-                        </Group>
-                        {selectedTransaction.unit.lot.location && (
-                          <Group justify="space-between">
-                            <Text size="sm" c="dimmed">Storage Location:</Text>
-                            <Text size="sm">
-                              {selectedTransaction.unit.lot.location.name} ({selectedTransaction.unit.lot.location.temp})
-                            </Text>
-                          </Group>
-                        )}
+                        <Separator />
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">Notes:</p>
+                          <p className="text-sm">{selectedTransaction.notes}</p>
+                        </div>
                       </>
                     )}
-                    {selectedTransaction.unit.optionalNotes && (
-                      <>
-                        <Divider my="xs" />
-                        <Text size="sm" c="dimmed">Unit Notes:</Text>
-                        <Text size="sm">{selectedTransaction.unit.optionalNotes}</Text>
-                      </>
-                    )}
-                  </Stack>
+                  </CardContent>
                 </Card>
-              )}
-            </Stack>
-          )}
-        </Modal>
-      </Stack>
+
+                {/* Timestamp */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Timestamp</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Date:</p>
+                        <p className="text-sm">{new Date(selectedTransaction.timestamp).toLocaleDateString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Time:</p>
+                        <p className="text-sm">{new Date(selectedTransaction.timestamp).toLocaleTimeString()}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Full Timestamp:</p>
+                      <p className="text-sm font-mono">{new Date(selectedTransaction.timestamp).toISOString()}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Patient Information (if checkout) */}
+                {selectedTransaction.type === 'check_out' && (selectedTransaction.patientName || selectedTransaction.patientReferenceId) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Patient Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {selectedTransaction.patientName && (
+                        <div className="grid grid-cols-2">
+                          <p className="text-sm text-muted-foreground">Patient Name:</p>
+                          <p className="text-sm">{selectedTransaction.patientName}</p>
+                        </div>
+                      )}
+                      {selectedTransaction.patientReferenceId && (
+                        <div className="grid grid-cols-2">
+                          <p className="text-sm text-muted-foreground">Reference ID:</p>
+                          <p className="text-sm font-mono">{selectedTransaction.patientReferenceId}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Medication/Unit Information */}
+                {selectedTransaction.unit && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Medication Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Medication:</p>
+                          <p className="text-sm font-semibold">{selectedTransaction.unit.drug.medicationName}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Generic Name:</p>
+                          <p className="text-sm">{selectedTransaction.unit.drug.genericName}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Strength:</p>
+                          <Badge variant="outline" className="mt-1">
+                            {selectedTransaction.unit.drug.strength} {selectedTransaction.unit.drug.strengthUnit}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Form:</p>
+                          <p className="text-sm">{selectedTransaction.unit.drug.form}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">NDC:</p>
+                          <p className="text-sm font-mono">{selectedTransaction.unit.drug.ndcId}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Current Stock:</p>
+                          <Badge 
+                            variant={selectedTransaction.unit.availableQuantity > 0 ? 'default' : 'secondary'}
+                            className="mt-1"
+                          >
+                            {selectedTransaction.unit.availableQuantity} / {selectedTransaction.unit.totalQuantity}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Expiry Date:</p>
+                          <Badge
+                            variant={new Date(selectedTransaction.unit.expiryDate) < new Date() ? 'destructive' : 'secondary'}
+                            className="mt-1"
+                          >
+                            {new Date(selectedTransaction.unit.expiryDate).toLocaleDateString()}
+                          </Badge>
+                        </div>
+                      </div>
+                      {selectedTransaction.unit.lot && (
+                        <>
+                          <Separator />
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Source:</p>
+                              <p className="text-sm">{selectedTransaction.unit.lot.source}</p>
+                            </div>
+                            {selectedTransaction.unit.lot.location && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Storage Location:</p>
+                                <p className="text-sm">
+                                  {selectedTransaction.unit.lot.location.name} ({selectedTransaction.unit.lot.location.temp})
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                      {selectedTransaction.unit.optionalNotes && (
+                        <>
+                          <Separator />
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Unit Notes:</p>
+                            <p className="text-sm">{selectedTransaction.unit.optionalNotes}</p>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </AppShell>
   );
 }

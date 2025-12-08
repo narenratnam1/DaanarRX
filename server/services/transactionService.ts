@@ -271,10 +271,16 @@ function formatTransaction(transaction: any): any {
 
       // Include location if available
       if (transaction.unit.lot.location) {
+        // Normalize temp to GraphQL enum values (DB uses "room temp")
+        const temp =
+          transaction.unit.lot.location.temp === 'room temp'
+            ? 'room_temp'
+            : transaction.unit.lot.location.temp;
+
         formatted.unit.lot.location = {
           locationId: transaction.unit.lot.location.location_id,
           name: transaction.unit.lot.location.name,
-          temp: transaction.unit.lot.location.temp,
+          temp,
           clinicId: transaction.unit.lot.location.clinic_id,
         };
       }

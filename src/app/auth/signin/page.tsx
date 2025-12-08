@@ -3,11 +3,16 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDispatch } from 'react-redux';
-import { TextInput, PasswordInput, Button, Paper, Title, Container, Text, Anchor, Stack, Alert } from '@mantine/core';
-import { IconAlertCircle } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
 import { useMutation, gql } from '@apollo/client';
 import { setAuth } from '../../../store/authSlice';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
+import { AlertCircle, Loader2, Package } from 'lucide-react';
+import Link from 'next/link';
 
 const SIGN_IN_MUTATION = gql`
   mutation SignIn($input: SignInInput!) {
@@ -34,7 +39,7 @@ const SIGN_IN_MUTATION = gql`
 interface ExpirationInfo {
   title: string;
   message: string;
-  color: string;
+  variant: 'default' | 'destructive';
 }
 
 function getExpirationInfo(reason: string | null): ExpirationInfo | null {
@@ -44,34 +49,34 @@ function getExpirationInfo(reason: string | null): ExpirationInfo | null {
     inactivity: {
       title: 'Session Expired Due to Inactivity',
       message: 'You were automatically logged out after 2 hours of inactivity for security reasons. Please sign in again to continue.',
-      color: 'orange',
+      variant: 'default',
     },
     token_expired: {
       title: 'Session Expired',
       message: 'Your session has expired after 2 hours for security reasons. Please sign in again to continue.',
-      color: 'orange',
+      variant: 'default',
     },
     invalid_token: {
       title: 'Invalid Session',
       message: 'Your session is no longer valid. This may have occurred due to signing in on another device. Please sign in again.',
-      color: 'red',
+      variant: 'destructive',
     },
     session_expired: {
       title: 'Session Expired',
       message: 'Your session has ended for security reasons. Please sign in again to continue.',
-      color: 'orange',
+      variant: 'default',
     },
     logged_out: {
       title: 'Logged Out',
       message: 'You have been successfully logged out.',
-      color: 'blue',
+      variant: 'default',
     },
   };
 
   return expirationReasons[reason] || {
     title: 'Session Ended',
     message: 'Your session has ended. Please sign in again to continue.',
-    color: 'orange',
+    variant: 'default',
   };
 }
 
@@ -79,10 +84,10 @@ function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
+  const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [expirationAlert, setExpirationAlert] = useState<ExpirationInfo | null>(null);
-
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
@@ -112,10 +117,10 @@ function SignInContent() {
   const [signIn, { loading }] = useMutation(SIGN_IN_MUTATION, {
     onCompleted: (data) => {
       if (!data?.signIn) {
-        notifications.show({
+        toast({
           title: 'Error',
-          message: 'Invalid response from server',
-          color: 'red',
+          description: 'Invalid response from server',
+          variant: 'destructive',
         });
         return;
       }
@@ -127,10 +132,9 @@ function SignInContent() {
         token: data.signIn.token,
       }));
 
-      notifications.show({
+      toast({
         title: 'Success',
-        message: 'Signed in successfully',
-        color: 'green',
+        description: 'Signed in successfully',
       });
 
       // Small delay to ensure state is updated
@@ -147,10 +151,10 @@ function SignInContent() {
         error.message || 
         'Incorrect email or password';
       
-      notifications.show({
+      toast({
         title: 'Error',
-        message: errorMessage,
-        color: 'red',
+        description: errorMessage,
+        variant: 'destructive',
       });
     },
   });
@@ -161,68 +165,100 @@ function SignInContent() {
   };
 
   return (
-    <Container size={420} my={40}>
-      <Title ta="center" mb="md">
-        DaanaRX
-      </Title>
-      <Text c="dimmed" size="sm" ta="center" mb="xl">
-        Medication Tracking System
-      </Text>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-12 dark:from-gray-900 dark:to-gray-800">
+      <div className="w-full max-w-md space-y-8">
+        {/* Logo and Title */}
+        <div className="flex flex-col items-center space-y-2 text-center">
+          <div className="rounded-full bg-primary p-3">
+            <Package className="h-8 w-8 text-primary-foreground" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">DaanaRX</h1>
+          <p className="text-muted-foreground">Medication Tracking System</p>
+        </div>
 
-      <Paper withBorder shadow="md" p={30} radius="md">
-        {expirationAlert && (
-          <Alert
-            icon={<IconAlertCircle size={16} />}
-            title={expirationAlert.title}
-            color={expirationAlert.color}
-            mb="md"
-            onClose={() => setExpirationAlert(null)}
-            withCloseButton
-          >
-            {expirationAlert.message}
-          </Alert>
-        )}
-        <form onSubmit={handleSubmit}>
-          <Stack>
-            <TextInput
-              label="Email"
-              placeholder="your@email.com"
-              required
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading || isRedirecting}
-            />
-
-            <PasswordInput
-              label="Password"
-              placeholder="Your password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading || isRedirecting}
-            />
-
-            <Button type="submit" fullWidth loading={loading || isRedirecting}>
-              {isRedirecting ? 'Redirecting...' : 'Sign In'}
-            </Button>
-
-            <Text size="sm" ta="center">
+        {/* Sign In Card */}
+        <Card className="border-2 shadow-lg">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+            <CardDescription>Enter your credentials to access your account</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {expirationAlert && (
+              <Alert variant={expirationAlert.variant} className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>{expirationAlert.title}</AlertTitle>
+                <AlertDescription>{expirationAlert.message}</AlertDescription>
+              </Alert>
+            )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading || isRedirecting}
+                  required
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading || isRedirecting}
+                  required
+                  className="h-11"
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full h-11 text-base" 
+                disabled={loading || isRedirecting}
+              >
+                {loading || isRedirecting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isRedirecting ? 'Redirecting...' : 'Signing in...'}
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <div className="text-center text-sm text-muted-foreground">
               Don&apos;t have an account?{' '}
-              <Anchor href="/auth/signup" size="sm">
+              <Link href="/auth/signup" className="font-medium text-primary hover:underline">
                 Sign up
-              </Anchor>
-            </Text>
-          </Stack>
-        </form>
-      </Paper>
-    </Container>
+              </Link>
+            </div>
+          </CardFooter>
+        </Card>
+
+        {/* Footer */}
+        <p className="text-center text-xs text-muted-foreground">
+          HIPAA-compliant medication tracking for non-profit clinics
+        </p>
+      </div>
+    </div>
   );
 }
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
       <SignInContent />
     </Suspense>
   );

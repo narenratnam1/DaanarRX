@@ -73,8 +73,8 @@ const authSlice = createSlice({
         localStorage.setItem('lastActivity', now.toString());
       }
     },
-    logout: (state, action?: PayloadAction<string | undefined>) => {
-      const reason = action?.payload;
+    logout: (state, action: PayloadAction<string | undefined>) => {
+      const reason = action.payload;
       
       state.user = null;
       state.clinic = null;

@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useLazyQuery, gql } from '@apollo/client';
-import { Center, Loader, Stack, Text, Progress } from '@mantine/core';
 import { RootState } from '../store';
 import { setAuth } from '../store/authSlice';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, Package } from 'lucide-react';
 
 // Query to prefetch all essential data
 const PREFETCH_DATA = gql`
@@ -137,20 +138,19 @@ export function AppInitializer({ children }: AppInitializerProps) {
   // Show loading screen while initializing
   if (isAuthenticated && !isInitialized) {
     return (
-      <Center h="100vh" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-        <Stack align="center" gap="lg">
-          <Loader size="xl" color="white" />
-          <Text size="xl" fw={600} c="white">
-            DaanaRX
-          </Text>
-          <Stack w={300} gap="xs">
-            <Progress value={loadingProgress} color="white" size="sm" radius="xl" animated />
-            <Text size="sm" c="white" ta="center">
-              {loadingMessage}
-            </Text>
-          </Stack>
-        </Stack>
-      </Center>
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-blue-600 to-purple-700">
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative">
+            <Loader2 className="h-16 w-16 animate-spin text-white" />
+            <Package className="absolute inset-0 m-auto h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-white">DaanaRX</h1>
+          <div className="w-[300px] space-y-2">
+            <Progress value={loadingProgress} className="h-2 bg-white/20" />
+            <p className="text-center text-sm text-white">{loadingMessage}</p>
+          </div>
+        </div>
+      </div>
     );
   }
 
