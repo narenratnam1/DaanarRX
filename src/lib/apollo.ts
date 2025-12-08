@@ -82,10 +82,37 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
 export const apolloClient = new ApolloClient({
   link: from([errorLink, authLink, httpLink]),
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({
+    typePolicies: {
+      Query: {
+        fields: {
+          // Configure how individual queries should be cached
+          getUnits: {
+            // Merge incoming data with existing cache
+            merge(_existing, incoming) {
+              return incoming;
+            },
+          },
+          getDashboardStats: {
+            merge(_existing, incoming) {
+              return incoming;
+            },
+          },
+        },
+      },
+    },
+  }),
   defaultOptions: {
     watchQuery: {
-      fetchPolicy: 'cache-and-network',
+      fetchPolicy: 'cache-first', // Use cache first, only fetch if not cached
+      nextFetchPolicy: 'cache-first', // Keep using cache after initial fetch
+    },
+    query: {
+      fetchPolicy: 'cache-first', // Use cache for all queries
+      errorPolicy: 'all', // Return both data and errors
+    },
+    mutate: {
+      errorPolicy: 'all',
     },
   },
 });

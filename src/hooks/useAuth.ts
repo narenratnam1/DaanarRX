@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter, usePathname } from 'next/navigation';
-import { logout, refreshActivity, RootState } from '../store/authSlice';
+import { logout, refreshActivity, restoreAuth, RootState } from '../store/authSlice';
 
 const ACTIVITY_CHECK_INTERVAL = 60 * 1000; // Check every minute
 const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
@@ -14,6 +14,21 @@ export function useAuth() {
   const { isAuthenticated, lastActivity, expiresAt, hasHydrated } = useSelector(
     (state: RootState) => state.auth
   );
+
+  // Safety timeout to ensure hydration completes
+  useEffect(() => {
+    if (!hasHydrated) {
+      // If hydration hasn't happened within 2 seconds, something is wrong
+      // Force hydration to prevent stuck loading screen
+      const timeoutId = setTimeout(() => {
+        console.warn('Hydration timeout - forcing completion');
+        dispatch(restoreAuth());
+      }, 2000);
+
+      return () => clearTimeout(timeoutId);
+    }
+    return undefined;
+  }, [hasHydrated, dispatch]);
 
   // Track user activity
   const handleActivity = useCallback(() => {

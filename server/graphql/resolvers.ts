@@ -90,13 +90,28 @@ export const resolvers = {
     },
 
     getDrug: async (_: unknown, { drugId }: { drugId: string }) => {
+      if (!drugId) {
+        throw new GraphQLError('Drug id is required', {
+          extensions: { code: 'BAD_USER_INPUT' },
+        });
+      }
+
       const { data: drug, error } = await supabaseServer
         .from('drugs')
         .select('*')
         .eq('drug_id', drugId)
         .single();
 
-      if (error || !drug) return null;
+      if (error) {
+        console.error('Error fetching drug', error);
+        throw new GraphQLError('Failed to fetch drug', {
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        });
+      }
+
+      if (!drug) {
+        return null;
+      }
 
       return {
         drugId: drug.drug_id,

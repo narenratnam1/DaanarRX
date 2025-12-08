@@ -125,6 +125,10 @@ export default function HomePage() {
   const { data, loading, error } = useQuery(GET_DASHBOARD_STATS);
   const router = useRouter();
 
+  // Only show loading skeleton if we have no data and are loading
+  // This prevents flash of loading state when navigating with cached data
+  const showLoading = loading && !data;
+
   return (
     <AppShell>
       <div className="space-y-8">
@@ -137,7 +141,7 @@ export default function HomePage() {
         </div>
 
         {/* Stats Grid */}
-        {loading ? (
+        {showLoading ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {[...Array(5)].map((_, i) => (
               <Card key={i}>

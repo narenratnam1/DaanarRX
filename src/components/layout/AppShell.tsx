@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from "react";
 import { useRouter, usePathname } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store';
-import { restoreAuth, logout } from '../../store/authSlice';
+import { logout } from '../../store/authSlice';
 import { useAuth } from '../../hooks/useAuth';
 import { ClinicSwitcher } from '../ClinicSwitcher';
 import { AppInitializer } from '../AppInitializer';
@@ -38,10 +38,23 @@ interface NavItem {
   badge?: string;
 }
 
-function NavLink({ item, isActive, onClick }: { item: NavItem; isActive: boolean; onClick: () => void }) {
+function NavLink({
+  item,
+  isActive,
+  onNavigate,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  onNavigate: (href: string) => void;
+}) {
+  const handleClick = useCallback(() => {
+    onNavigate(item.href);
+  }, [item.href, onNavigate]);
+
   return (
     <button
-      onClick={onClick}
+      type="button"
+      onClick={handleClick}
       className={cn(
         'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent hover:text-accent-foreground',
         isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
@@ -77,7 +90,7 @@ function Sidebar({ navItems, pathname, onNavigate }: {
               key={item.href}
               item={item}
               isActive={pathname === item.href}
-              onClick={() => onNavigate(item.href)}
+              onNavigate={onNavigate}
             />
           ))}
         </div>
@@ -94,19 +107,37 @@ export function AppShell({ children }: AppShellProps) {
   const { user } = useSelector((state: RootState) => state.auth);
   const { isAuthenticated, hasHydrated } = useAuth();
 
-  useEffect(() => {
-    dispatch(restoreAuth());
-  }, [dispatch]);
-
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     dispatch(logout(undefined));
     router.push('/auth/signin');
-  };
+  }, [dispatch, router]);
 
-  const handleNavigation = (href: string) => {
-    router.push(href);
-    setMobileOpen(false);
-  };
+  const handleNavigation = useCallback(
+    (href: string) => {
+      router.push(href);
+      setMobileOpen(false);
+    },
+    [router]
+  );
+
+  // Must compute navItems before early returns to maintain hook order
+  const navItems: NavItem[] = useMemo(() => {
+    const baseNav: NavItem[] = [
+      { icon: Home, label: 'Home', href: '/' },
+      { icon: PackageCheck, label: 'Check In', href: '/checkin' },
+      { icon: PackageMinus, label: 'Check Out', href: '/checkout' },
+      { icon: QrCode, label: 'Scan/Lookup', href: '/scan' },
+      { icon: Package, label: 'Inventory', href: '/inventory' },
+      { icon: FileText, label: 'Reports', href: '/reports' },
+    ];
+
+    if (user?.userRole === 'admin' || user?.userRole === 'superadmin') {
+      baseNav.push({ icon: MapPin, label: 'Admin', href: '/admin' });
+      baseNav.push({ icon: Settings, label: 'Settings', href: '/settings' });
+    }
+
+    return baseNav;
+  }, [user?.userRole]);
 
   if (!hasHydrated) {
     return (
@@ -118,25 +149,6 @@ export function AppShell({ children }: AppShellProps) {
 
   if (!isAuthenticated) {
     return null;
-  }
-
-  const navItems: NavItem[] = [
-    { icon: Home, label: 'Home', href: '/' },
-    { icon: PackageCheck, label: 'Check In', href: '/checkin' },
-    { icon: PackageMinus, label: 'Check Out', href: '/checkout' },
-    { icon: QrCode, label: 'Scan/Lookup', href: '/scan' },
-    { icon: Package, label: 'Inventory', href: '/inventory' },
-    { icon: FileText, label: 'Reports', href: '/reports' },
-  ];
-
-  // Add Admin for admin and superadmin
-  if (user?.userRole === 'admin' || user?.userRole === 'superadmin') {
-    navItems.push({ icon: MapPin, label: 'Admin', href: '/admin' });
-  }
-
-  // Add Settings for admin and superadmin
-  if (user?.userRole === 'admin' || user?.userRole === 'superadmin') {
-    navItems.push({ icon: Settings, label: 'Settings', href: '/settings' });
   }
 
   return (

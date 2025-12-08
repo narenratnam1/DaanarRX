@@ -101,42 +101,57 @@ const authSlice = createSlice({
       }
     },
     restoreAuth: (state) => {
+      // Always set hasHydrated to true, regardless of window availability
+      state.hasHydrated = true;
+      
       if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('authToken');
-        const userStr = localStorage.getItem('user');
-        const clinicStr = localStorage.getItem('clinic');
-        const clinicsStr = localStorage.getItem('clinics');
-        const expiresAtStr = localStorage.getItem('authExpiresAt');
-        const lastActivityStr = localStorage.getItem('lastActivity');
-        const expiresAt = expiresAtStr ? Number.parseInt(expiresAtStr, 10) : null;
-        const lastActivity = lastActivityStr ? Number.parseInt(lastActivityStr, 10) : null;
+        try {
+          const token = localStorage.getItem('authToken');
+          const userStr = localStorage.getItem('user');
+          const clinicStr = localStorage.getItem('clinic');
+          const clinicsStr = localStorage.getItem('clinics');
+          const expiresAtStr = localStorage.getItem('authExpiresAt');
+          const lastActivityStr = localStorage.getItem('lastActivity');
+          const expiresAt = expiresAtStr ? Number.parseInt(expiresAtStr, 10) : null;
+          const lastActivity = lastActivityStr ? Number.parseInt(lastActivityStr, 10) : null;
 
-        const isValid =
-          !!token &&
-          !!userStr &&
-          !!clinicStr &&
-          typeof expiresAt === 'number' &&
-          Number.isFinite(expiresAt) &&
-          expiresAt > Date.now();
+          const isValid =
+            !!token &&
+            !!userStr &&
+            !!clinicStr &&
+            typeof expiresAt === 'number' &&
+            Number.isFinite(expiresAt) &&
+            expiresAt > Date.now();
 
-        if (isValid) {
-          state.token = token!;
-          state.user = JSON.parse(userStr!);
-          state.clinic = JSON.parse(clinicStr!);
-          state.clinics = clinicsStr ? JSON.parse(clinicsStr) : [JSON.parse(clinicStr!)];
-          state.expiresAt = expiresAt!;
-          state.lastActivity = lastActivity;
-          state.isAuthenticated = true;
-        } else {
-          if (expiresAt && expiresAt <= Date.now()) {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
-            localStorage.removeItem('clinic');
-            localStorage.removeItem('clinics');
-            localStorage.removeItem('authExpiresAt');
-            localStorage.removeItem('lastActivity');
+          if (isValid) {
+            state.token = token!;
+            state.user = JSON.parse(userStr!);
+            state.clinic = JSON.parse(clinicStr!);
+            state.clinics = clinicsStr ? JSON.parse(clinicsStr) : [JSON.parse(clinicStr!)];
+            state.expiresAt = expiresAt!;
+            state.lastActivity = lastActivity;
+            state.isAuthenticated = true;
+          } else {
+            if (expiresAt && expiresAt <= Date.now()) {
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('user');
+              localStorage.removeItem('clinic');
+              localStorage.removeItem('clinics');
+              localStorage.removeItem('authExpiresAt');
+              localStorage.removeItem('lastActivity');
+            }
+
+            state.user = null;
+            state.clinic = null;
+            state.clinics = [];
+            state.token = null;
+            state.expiresAt = null;
+            state.lastActivity = null;
+            state.isAuthenticated = false;
           }
-
+        } catch (error) {
+          console.error('Error restoring auth:', error);
+          // On error, ensure clean state
           state.user = null;
           state.clinic = null;
           state.clinics = [];
@@ -145,8 +160,6 @@ const authSlice = createSlice({
           state.lastActivity = null;
           state.isAuthenticated = false;
         }
-
-        state.hasHydrated = true;
       }
     },
   },

@@ -29,7 +29,35 @@ async function handler(req: NextRequest) {
   await serverStartPromise;
 
   try {
-    const body = await req.json();
+    // Handle empty body for GET requests
+    let body;
+    try {
+      const text = await req.text();
+      if (!text || text.trim().length === 0) {
+        // Empty body, likely a GET request for introspection
+        body = {
+          query: req.nextUrl.searchParams.get('query') || '',
+          variables: req.nextUrl.searchParams.get('variables') 
+            ? JSON.parse(req.nextUrl.searchParams.get('variables')!) 
+            : undefined,
+          operationName: req.nextUrl.searchParams.get('operationName') || undefined,
+        };
+      } else {
+        body = JSON.parse(text);
+      }
+    } catch (parseError) {
+      return NextResponse.json(
+        {
+          errors: [
+            {
+              message: 'Invalid JSON in request body',
+              extensions: { code: 'BAD_REQUEST' },
+            },
+          ],
+        },
+        { status: 400 }
+      );
+    }
 
     const result = await server.executeOperation(
       {

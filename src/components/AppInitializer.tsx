@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useLazyQuery, gql } from '@apollo/client';
+import { apolloClient } from '../lib/apollo';
 import { RootState } from '../store';
 import { setAuth } from '../store/authSlice';
 import { Progress } from '@/components/ui/progress';
@@ -67,7 +68,7 @@ export function AppInitializer({ children }: AppInitializerProps) {
   const [loadingMessage, setLoadingMessage] = useState('Initializing...');
 
   const [prefetchData] = useLazyQuery(PREFETCH_DATA, {
-    fetchPolicy: 'network-only',
+    fetchPolicy: 'cache-first', // Use cache if available
     onCompleted: () => {
       setLoadingProgress(60);
       setLoadingMessage('Loading your clinics...');
@@ -79,7 +80,7 @@ export function AppInitializer({ children }: AppInitializerProps) {
   });
 
   const [getUserClinics] = useLazyQuery(GET_USER_CLINICS, {
-    fetchPolicy: 'network-only',
+    fetchPolicy: 'cache-first', // Use cache if available
     onCompleted: (data) => {
       setLoadingProgress(100);
       setLoadingMessage('Ready!');
@@ -111,6 +112,35 @@ export function AppInitializer({ children }: AppInitializerProps) {
         return;
       }
 
+      // Check if data is already in cache by trying to read it synchronously
+      try {
+        const cachedPrefetchData = apolloClient.readQuery({ query: PREFETCH_DATA });
+        const cachedClinicsData = apolloClient.readQuery({ query: GET_USER_CLINICS });
+        
+        // If both queries are cached, skip loading and initialize immediately
+        if (cachedPrefetchData && cachedClinicsData) {
+          console.log('Using cached data, skipping initialization fetch');
+          
+          // Update auth state with cached clinics
+          if (user && clinic && cachedClinicsData.getUserClinics) {
+            dispatch(
+              setAuth({
+                user,
+                clinic,
+                token: localStorage.getItem('authToken') || '',
+                clinics: cachedClinicsData.getUserClinics,
+              })
+            );
+          }
+          
+          setIsInitialized(true);
+          return;
+        }
+      } catch (e) {
+        // Cache miss, continue with normal initialization
+        console.log('Cache miss, fetching data...');
+      }
+
       setLoadingProgress(20);
       setLoadingMessage('Loading your data...');
 
@@ -133,7 +163,7 @@ export function AppInitializer({ children }: AppInitializerProps) {
     if (!isInitialized && hasHydrated) {
       initializeApp();
     }
-  }, [isAuthenticated, hasHydrated, isInitialized, prefetchData, getUserClinics]);
+  }, [isAuthenticated, hasHydrated, isInitialized, prefetchData, getUserClinics, user, clinic, dispatch]);
 
   // Show loading screen while initializing
   if (isAuthenticated && !isInitialized) {
