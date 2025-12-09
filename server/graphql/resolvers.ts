@@ -357,6 +357,11 @@ export const resolvers = {
       return transactionService.checkOutUnit(input, user.userId, clinic.clinicId);
     },
 
+    checkOutMedicationFEFO: async (_: unknown, { input }: { input: any }, context: GraphQLContext) => {
+      const { user, clinic } = requireAuth(context);
+      return transactionService.checkOutMedicationFEFO(input, user.userId, clinic.clinicId);
+    },
+
     // Transactions
     updateTransaction: async (_: unknown, { input }: { input: any }, context: GraphQLContext) => {
       requireRole(context, ['superadmin']);

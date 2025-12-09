@@ -83,11 +83,43 @@ const CHECK_OUT_UNIT = gql`
   }
 `;
 
+const CHECK_OUT_FEFO = gql`
+  mutation CheckOutMedicationFEFO($input: FEFOCheckOutInput!) {
+    checkOutMedicationFEFO(input: $input) {
+      totalQuantityDispensed
+      unitsUsed {
+        unitId
+        quantityTaken
+        expiryDate
+        medicationName
+      }
+      transactions {
+        transactionId
+        timestamp
+        quantity
+      }
+    }
+  }
+`;
+
+type CheckoutMode = 'unit' | 'fefo';
+
 function CheckOutContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const [checkoutMode, setCheckoutMode] = useState<CheckoutMode>('fefo');
+  
+  // Unit-based checkout state
   const [unitId, setUnitId] = useState('');
   const [selectedUnit, setSelectedUnit] = useState<UnitData | null>(null);
+  
+  // FEFO checkout state
+  const [ndcId, setNdcId] = useState('');
+  const [medicationName, setMedicationName] = useState('');
+  const [strength, setStrength] = useState('');
+  const [strengthUnit, setStrengthUnit] = useState('');
+  
+  // Common state
   const [quantity, setQuantity] = useState<string>('');
   const [patientName, setPatientName] = useState('');
   const [patientReference, setPatientReference] = useState('');
@@ -136,6 +168,24 @@ function CheckOutContent() {
     },
   });
 
+  const [checkOutFEFO, { loading: checkingOutFEFO }] = useMutation(CHECK_OUT_FEFO, {
+    onCompleted: (data) => {
+      const result = data.checkOutMedicationFEFO;
+      toast({
+        title: 'Success',
+        description: `Checked out ${result.totalQuantityDispensed} units from ${result.unitsUsed.length} container(s) using FEFO logic`,
+      });
+      handleReset();
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSearch = () => {
     if (unitId.length >= 3) {
       if (unitId.length === 36) {
@@ -155,40 +205,87 @@ function CheckOutContent() {
 
   const handleCheckOut = () => {
     const qty = parseInt(quantity, 10);
-    if (!selectedUnit || isNaN(qty) || qty <= 0) {
-      toast({
-        title: 'Error',
-        description: 'Please enter valid quantity',
-        variant: 'destructive',
-      });
-      return;
-    }
+    
+    if (checkoutMode === 'unit') {
+      // Traditional unit-based checkout
+      if (!selectedUnit || isNaN(qty) || qty <= 0) {
+        toast({
+          title: 'Error',
+          description: 'Please enter valid quantity',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-    if (qty > selectedUnit.availableQuantity) {
-      toast({
-        title: 'Error',
-        description: `Insufficient quantity. Available: ${selectedUnit.availableQuantity}`,
-        variant: 'destructive',
-      });
-      return;
-    }
+      if (qty > selectedUnit.availableQuantity) {
+        toast({
+          title: 'Error',
+          description: `Insufficient quantity. Available: ${selectedUnit.availableQuantity}`,
+          variant: 'destructive',
+        });
+        return;
+      }
 
-    checkOut({
-      variables: {
-        input: {
-          unitId: selectedUnit.unitId,
-          quantity: qty,
-          patientName: patientName || undefined,
-          patientReferenceId: patientReference || undefined,
-          notes: notes || undefined,
+      checkOut({
+        variables: {
+          input: {
+            unitId: selectedUnit.unitId,
+            quantity: qty,
+            patientName: patientName || undefined,
+            patientReferenceId: patientReference || undefined,
+            notes: notes || undefined,
+          },
         },
-      },
-    });
+      });
+    } else {
+      // FEFO medication-based checkout
+      if (isNaN(qty) || qty <= 0) {
+        toast({
+          title: 'Error',
+          description: 'Please enter valid quantity',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Validate input - must have either NDC or name+strength
+      if (!ndcId && (!medicationName || !strength || !strengthUnit)) {
+        toast({
+          title: 'Error',
+          description: 'Please provide either NDC or medication name with strength',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const input: any = {
+        quantity: qty,
+        patientName: patientName || undefined,
+        patientReferenceId: patientReference || undefined,
+        notes: notes || undefined,
+      };
+
+      if (ndcId) {
+        input.ndcId = ndcId;
+      } else {
+        input.medicationName = medicationName;
+        input.strength = parseFloat(strength);
+        input.strengthUnit = strengthUnit;
+      }
+
+      checkOutFEFO({
+        variables: { input },
+      });
+    }
   };
 
   const handleReset = () => {
     setUnitId('');
     setSelectedUnit(null);
+    setNdcId('');
+    setMedicationName('');
+    setStrength('');
+    setStrengthUnit('');
     setQuantity('');
     setPatientName('');
     setPatientReference('');
@@ -232,39 +329,154 @@ function CheckOutContent() {
 
         <Card className="animate-fade-in">
           <CardContent className="pt-6 space-y-5">
-            <Button
-              variant="outline"
-              onClick={() => setShowQRScanner(true)}
-              className="w-full"
-              size="lg"
-            >
-              <QrCodeIcon className="mr-2 h-5 w-5" />
-              Scan QR Code
-            </Button>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 space-y-3">
-                <Label htmlFor="unit-search" className="text-base font-semibold">Search by Unit ID, Generic Name, or Strength</Label>
-                <Input
-                  id="unit-search"
-                  placeholder="Enter unit ID, generic name (e.g., Lisinopril), or strength (e.g., 10)"
-                  value={unitId}
-                  onChange={(e) => setUnitId(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSearch();
-                    }
+            {/* Checkout Mode Toggle */}
+            <div className="flex flex-col space-y-3">
+              <Label className="text-base font-semibold">Checkout Method</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={checkoutMode === 'fefo' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setCheckoutMode('fefo');
+                    handleReset();
                   }}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Search by unit ID, medication generic name, or strength value
-                </p>
+                  className="flex-1"
+                >
+                  FEFO (First Expired, First Out)
+                </Button>
+                <Button
+                  variant={checkoutMode === 'unit' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setCheckoutMode('unit');
+                    handleReset();
+                  }}
+                  className="flex-1"
+                >
+                  Specific Unit
+                </Button>
               </div>
-              <Button onClick={handleSearch} disabled={loadingUnit} size="lg" className="sm:mt-8 w-full sm:w-auto">
-                {loadingUnit && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                Search
-              </Button>
+              <p className="text-sm text-muted-foreground">
+                {checkoutMode === 'fefo' 
+                  ? 'Automatically dispense from units expiring soonest' 
+                  : 'Select a specific unit to dispense from'}
+              </p>
             </div>
+
+            {checkoutMode === 'unit' ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowQRScanner(true)}
+                  className="w-full"
+                  size="lg"
+                >
+                  <QrCodeIcon className="mr-2 h-5 w-5" />
+                  Scan QR Code
+                </Button>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 space-y-3">
+                    <Label htmlFor="unit-search" className="text-base font-semibold">Search by Unit ID, Generic Name, or Strength</Label>
+                    <Input
+                      id="unit-search"
+                      placeholder="Enter unit ID, generic name (e.g., Lisinopril), or strength (e.g., 10)"
+                      value={unitId}
+                      onChange={(e) => setUnitId(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSearch();
+                        }
+                      }}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Search by unit ID, medication generic name, or strength value
+                    </p>
+                  </div>
+                  <Button onClick={handleSearch} disabled={loadingUnit} size="lg" className="sm:mt-8 w-full sm:w-auto">
+                    {loadingUnit && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                    Search
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-5 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Option 1: Search by NDC</Label>
+                  <Input
+                    placeholder="Enter NDC (e.g., 12345-678-90)"
+                    value={ndcId}
+                    onChange={(e) => {
+                      setNdcId(e.target.value);
+                      // Clear other fields when NDC is entered
+                      if (e.target.value) {
+                        setMedicationName('');
+                        setStrength('');
+                        setStrengthUnit('');
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 border-t border-muted" />
+                  <span className="text-sm text-muted-foreground font-semibold">OR</span>
+                  <div className="flex-1 border-t border-muted" />
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Option 2: Search by Medication Details</Label>
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="med-name" className="text-sm">Medication Name</Label>
+                      <Input
+                        id="med-name"
+                        placeholder="e.g., Lisinopril"
+                        value={medicationName}
+                        onChange={(e) => {
+                          setMedicationName(e.target.value);
+                          // Clear NDC when name is entered
+                          if (e.target.value) setNdcId('');
+                        }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="strength" className="text-sm">Strength</Label>
+                        <Input
+                          id="strength"
+                          type="number"
+                          placeholder="e.g., 10"
+                          value={strength}
+                          onChange={(e) => {
+                            setStrength(e.target.value);
+                            if (e.target.value) setNdcId('');
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="strength-unit" className="text-sm">Unit</Label>
+                        <Input
+                          id="strength-unit"
+                          placeholder="e.g., mg"
+                          value={strengthUnit}
+                          onChange={(e) => {
+                            setStrengthUnit(e.target.value);
+                            if (e.target.value) setNdcId('');
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>FEFO Logic</AlertTitle>
+                  <AlertDescription>
+                    The system will automatically dispense from units expiring soonest. If your requested quantity exceeds a single unit, it will pull from multiple units in order of expiration.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
 
             {searchData?.searchUnitsByQuery && searchData.searchUnitsByQuery.length > 0 && (
               <Card className="animate-slide-in">
@@ -312,15 +524,17 @@ function CheckOutContent() {
           </CardContent>
         </Card>
 
-        {selectedUnit && (
+        {(selectedUnit || (checkoutMode === 'fefo' && (ndcId || (medicationName && strength && strengthUnit)))) && (
           <Card className="animate-fade-in">
             <CardContent className="pt-6 space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <h3 className="text-2xl sm:text-3xl font-bold">Unit Details</h3>
-                <Badge variant={selectedUnit.availableQuantity > 0 ? 'default' : 'destructive'} className="text-base sm:text-lg px-4 py-2">
-                  {selectedUnit.availableQuantity} Available
-                </Badge>
-              </div>
+              {selectedUnit && checkoutMode === 'unit' && (
+                <>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <h3 className="text-2xl sm:text-3xl font-bold">Unit Details</h3>
+                    <Badge variant={selectedUnit.availableQuantity > 0 ? 'default' : 'destructive'} className="text-base sm:text-lg px-4 py-2">
+                      {selectedUnit.availableQuantity} Available
+                    </Badge>
+                  </div>
 
               <Card className="bg-primary/5 border-primary/20">
                 <CardContent className="pt-5 space-y-3">
@@ -363,10 +577,26 @@ function CheckOutContent() {
                 </div>
               </div>
 
-              {selectedUnit.optionalNotes && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Notes</p>
-                  <p className="text-sm">{selectedUnit.optionalNotes}</p>
+                  {selectedUnit.optionalNotes && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                      <p className="text-sm">{selectedUnit.optionalNotes}</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {checkoutMode === 'fefo' && (
+                <div className="flex flex-col gap-3">
+                  <h3 className="text-2xl sm:text-3xl font-bold">FEFO Checkout</h3>
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {ndcId 
+                        ? `Searching for medications with NDC: ${ndcId}` 
+                        : `Searching for ${medicationName} ${strength}${strengthUnit}`}
+                    </AlertDescription>
+                  </Alert>
                 </div>
               )}
 
@@ -381,10 +611,15 @@ function CheckOutContent() {
                       type="number"
                       placeholder="Enter quantity"
                       min={1}
-                      max={selectedUnit.availableQuantity}
+                      max={checkoutMode === 'unit' && selectedUnit ? selectedUnit.availableQuantity : undefined}
                       value={quantity}
                       onChange={(e) => setQuantity(e.target.value)}
                     />
+                    {checkoutMode === 'fefo' && (
+                      <p className="text-sm text-muted-foreground">
+                        The system will automatically pull from multiple units if needed
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-3">
@@ -419,9 +654,14 @@ function CheckOutContent() {
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                    <Button onClick={handleCheckOut} disabled={checkingOut} className="w-full sm:w-auto" size="lg">
-                      {checkingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Check Out
+                    <Button 
+                      onClick={handleCheckOut} 
+                      disabled={checkingOut || checkingOutFEFO} 
+                      className="w-full sm:w-auto" 
+                      size="lg"
+                    >
+                      {(checkingOut || checkingOutFEFO) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {checkoutMode === 'fefo' ? 'Check Out (FEFO)' : 'Check Out'}
                     </Button>
                     <Button variant="outline" onClick={handleReset} className="w-full sm:w-auto" size="lg">
                       Cancel

@@ -2,6 +2,221 @@ import { supabaseServer } from '../utils/supabase';
 import { Transaction, CheckOutRequest } from '@/types';
 
 /**
+ * FEFO Checkout Result
+ */
+export interface FEFOCheckoutResult {
+  transactions: Transaction[];
+  totalQuantityDispensed: number;
+  unitsUsed: Array<{
+    unitId: string;
+    quantityTaken: number;
+    expiryDate: string;
+    medicationName: string;
+  }>;
+}
+
+/**
+ * FEFO Checkout Request
+ */
+export interface FEFOCheckoutRequest {
+  ndcId?: string;
+  medicationName?: string;
+  strength?: number;
+  strengthUnit?: string;
+  quantity: number;
+  patientName?: string;
+  patientReferenceId?: string;
+  notes?: string;
+}
+
+/**
+ * Check out medication using FEFO (First Expired, First Out) logic
+ * Finds units with matching medication and pulls from units expiring first
+ */
+export async function checkOutMedicationFEFO(
+  input: FEFOCheckoutRequest,
+  userId: string,
+  clinicId: string
+): Promise<FEFOCheckoutResult> {
+  // Validate input - must have either NDC or name+strength
+  if (!input.ndcId && (!input.medicationName || !input.strength || !input.strengthUnit)) {
+    throw new Error('Must provide either NDC or medication name with strength and unit');
+  }
+
+  if (input.quantity <= 0) {
+    throw new Error('Quantity must be greater than 0');
+  }
+
+  // Find all matching units with available quantity, ordered by expiry date (FEFO)
+  let query = supabaseServer
+    .from('units')
+    .select(`
+      *,
+      drug:drugs(*)
+    `)
+    .eq('clinic_id', clinicId)
+    .gt('available_quantity', 0)
+    .order('expiry_date', { ascending: true });
+
+  // Add drug matching criteria
+  if (input.ndcId) {
+    // Match by NDC
+    const { data: drug } = await supabaseServer
+      .from('drugs')
+      .select('drug_id')
+      .eq('ndc_id', input.ndcId)
+      .single();
+    
+    if (!drug) {
+      throw new Error(`No medication found with NDC: ${input.ndcId}`);
+    }
+    
+    query = query.eq('drug_id', drug.drug_id);
+  } else {
+    // Match by name and strength
+    const { data: drugs } = await supabaseServer
+      .from('drugs')
+      .select('drug_id')
+      .ilike('medication_name', input.medicationName!)
+      .eq('strength', input.strength!)
+      .eq('strength_unit', input.strengthUnit!);
+    
+    if (!drugs || drugs.length === 0) {
+      throw new Error(`No medication found matching: ${input.medicationName} ${input.strength}${input.strengthUnit}`);
+    }
+    
+    const drugIds = drugs.map(d => d.drug_id);
+    query = query.in('drug_id', drugIds);
+  }
+
+  const { data: units, error: unitsError } = await query;
+
+  if (unitsError) {
+    throw new Error(`Failed to fetch units: ${unitsError.message}`);
+  }
+
+  if (!units || units.length === 0) {
+    throw new Error('No units available for this medication');
+  }
+
+  // Calculate total available quantity
+  const totalAvailable = units.reduce((sum, unit) => sum + unit.available_quantity, 0);
+  
+  if (totalAvailable < input.quantity) {
+    throw new Error(
+      `Insufficient quantity. Available: ${totalAvailable}, Requested: ${input.quantity}`
+    );
+  }
+
+  // Distribute quantity across units (FEFO)
+  let remainingQuantity = input.quantity;
+  const transactions: Transaction[] = [];
+  const unitsUsed: Array<{
+    unitId: string;
+    quantityTaken: number;
+    expiryDate: string;
+    medicationName: string;
+  }> = [];
+
+  for (const unit of units) {
+    if (remainingQuantity <= 0) break;
+
+    const quantityToTake = Math.min(remainingQuantity, unit.available_quantity);
+    const newAvailableQuantity = unit.available_quantity - quantityToTake;
+
+    // Update unit quantity
+    const { error: updateError } = await supabaseServer
+      .from('units')
+      .update({ available_quantity: newAvailableQuantity })
+      .eq('unit_id', unit.unit_id);
+
+    if (updateError) {
+      // Rollback previous updates
+      for (const usedUnit of unitsUsed) {
+        const { data: rollbackUnit } = await supabaseServer
+          .from('units')
+          .select('available_quantity')
+          .eq('unit_id', usedUnit.unitId)
+          .single();
+        
+        if (rollbackUnit) {
+          await supabaseServer
+            .from('units')
+            .update({ 
+              available_quantity: rollbackUnit.available_quantity + usedUnit.quantityTaken
+            })
+            .eq('unit_id', usedUnit.unitId);
+        }
+      }
+      throw new Error(`Failed to update unit: ${updateError.message}`);
+    }
+
+    // Create transaction
+    const { data: transaction, error: transactionError } = await supabaseServer
+      .from('transactions')
+      .insert({
+        type: 'check_out',
+        quantity: quantityToTake,
+        unit_id: unit.unit_id,
+        patient_name: input.patientName,
+        patient_reference_id: input.patientReferenceId,
+        user_id: userId,
+        notes: input.notes || `FEFO checkout - Unit ${unitsUsed.length + 1} of batch`,
+        clinic_id: clinicId,
+      })
+      .select(`
+        *,
+        unit:units(*, drug:drugs(*)),
+        user:users(*)
+      `)
+      .single();
+
+    if (transactionError || !transaction) {
+      // Rollback all updates
+      for (const usedUnit of unitsUsed) {
+        const { data: rollbackUnit } = await supabaseServer
+          .from('units')
+          .select('available_quantity')
+          .eq('unit_id', usedUnit.unitId)
+          .single();
+        
+        if (rollbackUnit) {
+          await supabaseServer
+            .from('units')
+            .update({ 
+              available_quantity: rollbackUnit.available_quantity + usedUnit.quantityTaken
+            })
+            .eq('unit_id', usedUnit.unitId);
+        }
+      }
+      // Rollback current unit
+      await supabaseServer
+        .from('units')
+        .update({ available_quantity: unit.available_quantity })
+        .eq('unit_id', unit.unit_id);
+
+      throw new Error(`Failed to create transaction: ${transactionError?.message}`);
+    }
+
+    transactions.push(formatTransaction(transaction));
+    unitsUsed.push({
+      unitId: unit.unit_id,
+      quantityTaken: quantityToTake,
+      expiryDate: unit.expiry_date,
+      medicationName: unit.drug.medication_name,
+    });
+
+    remainingQuantity -= quantityToTake;
+  }
+
+  return {
+    transactions,
+    totalQuantityDispensed: input.quantity,
+    unitsUsed,
+  };
+}
+
+/**
  * Check out a unit (dispense medication)
  */
 export async function checkOutUnit(

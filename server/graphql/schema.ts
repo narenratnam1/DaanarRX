@@ -239,6 +239,30 @@ export const typeDefs = `#graphql
     notes: String
   }
 
+  input FEFOCheckOutInput {
+    ndcId: String
+    medicationName: String
+    strength: Float
+    strengthUnit: String
+    quantity: Int!
+    patientName: String
+    patientReferenceId: String
+    notes: String
+  }
+
+  type FEFOUnitUsed {
+    unitId: ID!
+    quantityTaken: Int!
+    expiryDate: Date!
+    medicationName: String!
+  }
+
+  type FEFOCheckOutResult {
+    transactions: [Transaction!]!
+    totalQuantityDispensed: Int!
+    unitsUsed: [FEFOUnitUsed!]!
+  }
+
   input UpdateUnitInput {
     unitId: ID!
     totalQuantity: Int
@@ -352,6 +376,7 @@ export const typeDefs = `#graphql
 
     # Check-out
     checkOutUnit(input: CheckOutInput!): Transaction!
+    checkOutMedicationFEFO(input: FEFOCheckOutInput!): FEFOCheckOutResult!
 
     # Transactions
     updateTransaction(input: UpdateTransactionInput!): Transaction!
