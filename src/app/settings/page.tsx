@@ -410,19 +410,21 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Settings</h1>
             <p className="text-base sm:text-lg text-muted-foreground">
-              {isSuperadmin ? "Manage users and clinic configuration" : "Create and manage your clinics"}
+              {isSuperadmin ? 'Manage users and clinic configuration' : 'Manage your clinic settings'}
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              onClick={() => setCreateClinicModalOpened(true)}
-              variant="outline"
-              size="lg"
-              className="w-full sm:w-auto"
-            >
-              <Plus className="mr-2 h-5 w-5" />
-              Create New Clinic
-            </Button>
+            {isSuperadmin && (
+              <Button
+                onClick={() => setCreateClinicModalOpened(true)}
+                variant="outline"
+                size="lg"
+                className="w-full sm:w-auto"
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                Create New Clinic
+              </Button>
+            )}
             {isSuperadmin && (
               <Button onClick={() => setModalOpened(true)} size="lg" className="w-full sm:w-auto">
                 Send Invitation
@@ -699,40 +701,42 @@ export default function SettingsPage() {
           </Dialog>
         )}
 
-        {/* Create New Clinic Modal */}
-        <Dialog open={createClinicModalOpened} onOpenChange={setCreateClinicModalOpened}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Create New Clinic</DialogTitle>
-              <DialogDescription>
-                Create a new clinic and become its superadmin. You'll be able to switch between your clinics using the clinic switcher.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="clinic-name">Clinic Name *</Label>
-                <Input
-                  id="clinic-name"
-                  placeholder="My New Clinic"
-                  value={newClinicName}
-                  onChange={(e) => setNewClinicName(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Choose a name for your new clinic
-                </p>
+        {/* Create New Clinic Modal (Superadmin only) */}
+        {isSuperadmin && (
+          <Dialog open={createClinicModalOpened} onOpenChange={setCreateClinicModalOpened}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Create New Clinic</DialogTitle>
+                <DialogDescription>
+                  Create a new clinic. Only superadmins can create clinics.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="clinic-name">Clinic Name *</Label>
+                  <Input
+                    id="clinic-name"
+                    placeholder="My New Clinic"
+                    value={newClinicName}
+                    onChange={(e) => setNewClinicName(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Choose a name for your new clinic
+                  </p>
+                </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateClinicModalOpened(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateClinic} disabled={createClinicLoading}>
-                {createClinicLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Clinic
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateClinicModalOpened(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateClinic} disabled={createClinicLoading}>
+                  {createClinicLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Clinic
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Delete Clinic Confirmation Modal */}
         <Dialog open={!!deleteClinicId} onOpenChange={() => setDeleteClinicId(null)}>

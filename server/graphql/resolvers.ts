@@ -410,7 +410,7 @@ export const resolvers = {
       { input }: { input: { name: string } },
       context: GraphQLContext
     ) => {
-      const { user } = requireAuth(context);
+      const user = requireRole(context, ['superadmin']);
       return authService.createClinic(user.userId, input.name);
     },
 

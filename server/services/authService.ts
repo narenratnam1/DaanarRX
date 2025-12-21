@@ -408,6 +408,10 @@ export async function createClinic(userId: string, clinicName: string): Promise<
     throw new Error('User not found');
   }
 
+  if (user.user_role !== 'superadmin') {
+    throw new Error('Only superadmins can create clinics');
+  }
+
   // Create the new clinic
   const { data: clinic, error: clinicError } = await supabaseServer
     .from('clinics')
