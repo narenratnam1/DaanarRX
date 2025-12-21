@@ -67,43 +67,59 @@ export function AppInitializer({ children }: AppInitializerProps) {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState('Initializing...');
 
-  const [prefetchData] = useLazyQuery(PREFETCH_DATA, {
+  const [prefetchData, { data: prefetchDataResult, error: prefetchError }] = useLazyQuery(PREFETCH_DATA, {
     fetchPolicy: 'cache-first', // Use cache if available
-    onCompleted: () => {
-      setLoadingProgress(60);
-      setLoadingMessage('Loading your clinics...');
-    },
-    onError: (error) => {
-      console.error('Prefetch error:', error);
-      setIsInitialized(true);
-    },
   });
 
-  const [getUserClinics] = useLazyQuery(GET_USER_CLINICS, {
+  const [getUserClinics, { data: clinicsData, error: clinicsError }] = useLazyQuery(GET_USER_CLINICS, {
     fetchPolicy: 'cache-first', // Use cache if available
-    onCompleted: (data) => {
+  });
+
+  // Handle prefetch data completion
+  useEffect(() => {
+    if (prefetchDataResult) {
+      setLoadingProgress(60);
+      setLoadingMessage('Loading your clinics...');
+    }
+  }, [prefetchDataResult]);
+
+  // Handle prefetch errors
+  useEffect(() => {
+    if (prefetchError) {
+      console.error('Prefetch error:', prefetchError);
+      setIsInitialized(true);
+    }
+  }, [prefetchError]);
+
+  // Handle user clinics data completion
+  useEffect(() => {
+    if (clinicsData?.getUserClinics) {
       setLoadingProgress(100);
       setLoadingMessage('Ready!');
 
       // Update auth state with all clinics
-      if (user && clinic && data.getUserClinics) {
+      if (user && clinic) {
         dispatch(
           setAuth({
             user,
             clinic,
             token: localStorage.getItem('authToken') || '',
-            clinics: data.getUserClinics,
+            clinics: clinicsData.getUserClinics,
           })
         );
       }
 
       setTimeout(() => setIsInitialized(true), 300);
-    },
-    onError: (error) => {
-      console.error('Get user clinics error:', error);
+    }
+  }, [clinicsData, user, clinic, dispatch]);
+
+  // Handle clinics errors
+  useEffect(() => {
+    if (clinicsError) {
+      console.error('Get user clinics error:', clinicsError);
       setIsInitialized(true);
-    },
-  });
+    }
+  }, [clinicsError]);
 
   useEffect(() => {
     const initializeApp = async () => {

@@ -90,6 +90,7 @@ export const typeDefs = `#graphql
     drugId: ID!
     qrCode: String
     optionalNotes: String
+    manufacturerLotNumber: String
     clinicId: ID!
     drug: Drug!
     lot: Lot!
@@ -229,6 +230,7 @@ export const typeDefs = `#graphql
     drugId: ID
     drugData: DrugInput
     optionalNotes: String
+    manufacturerLotNumber: String
   }
 
   input CheckOutInput {
@@ -285,7 +287,6 @@ export const typeDefs = `#graphql
 
   input CreateClinicInput {
     name: String!
-    password: String!
   }
 
   input CreateFeedbackInput {
@@ -384,6 +385,8 @@ export const typeDefs = `#graphql
     # Clinic
     updateClinic(name: String, primaryColor: String, secondaryColor: String): Clinic!
     createClinic(input: CreateClinicInput!): AuthPayload!
+    deleteClinic(clinicId: ID!): Boolean!
+    switchClinic(clinicId: ID!): AuthPayload!
 
     # Feedback
     createFeedback(input: CreateFeedbackInput!): Feedback!

@@ -97,6 +97,7 @@ export interface Unit {
   drugId: string;
   qrCode?: string;
   optionalNotes?: string;
+  manufacturerLotNumber?: string; // FDA Required: Pharmaceutical manufacturer's lot number for recall tracking
   clinicId: string;
   lot: Lot;
   user: User;
@@ -155,6 +156,7 @@ export interface CreateUnitRequest {
     form: string;
   };
   optionalNotes?: string;
+  manufacturerLotNumber?: string; // FDA Required: Pharmaceutical manufacturer's lot number
 }
 
 export interface CheckOutRequest {

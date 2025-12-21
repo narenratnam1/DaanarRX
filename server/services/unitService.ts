@@ -54,6 +54,7 @@ export async function createUnit(
       user_id: userId,
       drug_id: drugId,
       optional_notes: input.optionalNotes,
+      manufacturer_lot_number: input.manufacturerLotNumber,
       clinic_id: clinicId,
     })
     .select(`
@@ -332,6 +333,7 @@ function formatUnit(unit: any): Unit {
     drugId: unit.drug_id,
     qrCode: unit.qr_code,
     optionalNotes: unit.optional_notes,
+    manufacturerLotNumber: unit.manufacturer_lot_number,
     clinicId: unit.clinic_id,
     drug: {
       drugId: unit.drug.drug_id,

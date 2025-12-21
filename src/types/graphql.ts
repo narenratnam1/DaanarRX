@@ -38,6 +38,7 @@ export interface UnitData {
   availableQuantity: number;
   expiryDate: string;
   optionalNotes?: string | null;
+  manufacturerLotNumber?: string | null;
   drug: DrugData;
   lot?: LotData;
   user?: {
@@ -189,4 +190,31 @@ export interface FeedbackData {
 
 export interface CreateFeedbackResponse {
   createFeedback: FeedbackData;
+}
+
+// Clinic Types
+export interface ClinicData {
+  clinicId: string;
+  name: string;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  logoUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GetUserClinicsResponse {
+  getUserClinics: ClinicData[];
+}
+
+export interface CreateClinicResponse {
+  createClinic: AuthPayload;
+}
+
+export interface DeleteClinicResponse {
+  deleteClinic: boolean;
+}
+
+export interface SwitchClinicResponse {
+  switchClinic: AuthPayload;
 }

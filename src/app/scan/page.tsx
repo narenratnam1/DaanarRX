@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLazyQuery, gql } from '@apollo/client';
 import { QrCodeIcon, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -80,31 +80,39 @@ export default function ScanPage() {
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [showQRScanner, setShowQRScanner] = useState(false);
 
-  const [getUnit] = useLazyQuery<GetUnitResponse>(GET_UNIT, {
-    onCompleted: (data) => {
-      if (data.getUnit) {
-        setUnit(data.getUnit);
-        getTransactions({ variables: { unitId: data.getUnit.unitId } });
-        toast({
-          title: 'Unit Found',
-          description: `${data.getUnit.drug.medicationName}`,
-        });
-      }
-    },
-    onError: () => {
+  const [getUnit, { data: unitData, error: unitError }] = useLazyQuery<GetUnitResponse>(GET_UNIT);
+
+  const [getTransactions, { data: transactionsData }] = useLazyQuery<GetTransactionsResponse>(GET_TRANSACTIONS);
+
+  // Handle unit data changes
+  useEffect(() => {
+    if (unitData?.getUnit) {
+      setUnit(unitData.getUnit);
+      getTransactions({ variables: { unitId: unitData.getUnit.unitId } });
+      toast({
+        title: 'Unit Found',
+        description: `${unitData.getUnit.drug.medicationName}`,
+      });
+    }
+  }, [unitData, getTransactions, toast]);
+
+  // Handle unit errors
+  useEffect(() => {
+    if (unitError) {
       toast({
         title: 'Error',
         description: 'Unit not found',
         variant: 'destructive',
       });
-    },
-  });
+    }
+  }, [unitError, toast]);
 
-  const [getTransactions] = useLazyQuery<GetTransactionsResponse>(GET_TRANSACTIONS, {
-    onCompleted: (data) => {
-      setTransactions(data.getTransactions.transactions);
-    },
-  });
+  // Handle transactions data changes
+  useEffect(() => {
+    if (transactionsData?.getTransactions) {
+      setTransactions(transactionsData.getTransactions.transactions);
+    }
+  }, [transactionsData]);
 
   const [searchUnits, { data: searchData }] = useLazyQuery<SearchUnitsResponse>(SEARCH_UNITS);
 

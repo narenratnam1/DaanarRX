@@ -139,6 +139,7 @@ export default function CheckInPage() {
   const [totalQuantity, setTotalQuantity] = useState<string>('');
   const [availableQuantity, setAvailableQuantity] = useState<string>('');
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
+  const [manufacturerLotNumber, setManufacturerLotNumber] = useState('');
   const [unitNotes, setUnitNotes] = useState('');
   const [createdUnitId, setCreatedUnitId] = useState<string>('');
   const [showQRModal, setShowQRModal] = useState(false);
@@ -201,7 +202,7 @@ export default function CheckInPage() {
 
   const isStep3Valid = () => {
     const qty = parseInt(totalQuantity, 10);
-    if (isNaN(qty) || qty <= 0 || expiryDate === null) {
+    if (isNaN(qty) || qty <= 0 || expiryDate === null || !manufacturerLotNumber.trim()) {
       return false;
     }
 
@@ -383,6 +384,7 @@ export default function CheckInPage() {
           expiryDate: expiryDate.toISOString().split('T')[0],
           drugId: selectedDrug?.drugId,
           drugData: !selectedDrug?.drugId ? drugData : undefined,
+          manufacturerLotNumber: manufacturerLotNumber || undefined,
           optionalNotes: unitNotes,
         },
       },
@@ -412,6 +414,7 @@ export default function CheckInPage() {
     setTotalQuantity('');
     setAvailableQuantity('');
     setExpiryDate(null);
+    setManufacturerLotNumber('');
     setUnitNotes('');
     setCreatedUnitId('');
     setShowQRModal(false);
@@ -823,6 +826,22 @@ export default function CheckInPage() {
                     onDateChange={setExpiryDate}
                     placeholder="Select expiry date"
                   />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="manufacturer-lot" className="text-base font-semibold">
+                    Manufacturer Lot Number *
+                    <span className="text-xs text-muted-foreground font-normal ml-2">(FDA Required for Recall Tracking)</span>
+                  </Label>
+                  <Input
+                    id="manufacturer-lot"
+                    placeholder="Enter manufacturer's lot number from package"
+                    value={manufacturerLotNumber}
+                    onChange={(e) => setManufacturerLotNumber(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This is different from the donation source. Find the lot number on the medication package.
+                  </p>
                 </div>
 
                 <div className="space-y-3">

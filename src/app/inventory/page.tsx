@@ -73,6 +73,7 @@ const GET_UNITS = gql`
         availableQuantity
         expiryDate
         optionalNotes
+        manufacturerLotNumber
         drug {
           medicationName
           genericName
@@ -142,6 +143,7 @@ interface UnitDataWithLocation {
   availableQuantity: number;
   expiryDate: string;
   optionalNotes?: string | null;
+  manufacturerLotNumber?: string | null;
   drug: DrugData;
   lot?: {
     source: string;
@@ -592,59 +594,77 @@ export default function InventoryPage() {
                         </div>
                         
                         {/* Label Information - Right Side */}
-                        <div style={{ 
-                          flex: 1, 
+                        <div style={{
+                          flex: 1,
                           paddingLeft: '12px',
                           fontSize: '9px',
                           display: 'flex',
                           flexDirection: 'column',
                           overflow: 'hidden',
                         }}>
+                          <div style={{
+                            fontSize: '8px',
+                            fontWeight: 'bold',
+                            backgroundColor: '#dc2626',
+                            color: 'white',
+                            padding: '2px 4px',
+                            marginBottom: '3px',
+                            textAlign: 'center',
+                            borderRadius: '2px',
+                          }}>
+                            DONATED MEDICATION
+                          </div>
+
                           <div style={{ fontSize: '12px', fontWeight: 'bold', lineHeight: 1.1, marginBottom: '1px' }}>
                             {selectedUnit.drug.medicationName}
                           </div>
                           <div style={{ fontSize: '9px', color: '#666', marginBottom: '3px' }}>
                             ({selectedUnit.drug.genericName})
                           </div>
-                          
+
                           <div style={{ fontSize: '10px', fontWeight: '600', marginBottom: '3px' }}>
                             {selectedUnit.drug.strength} {selectedUnit.drug.strengthUnit} - {selectedUnit.drug.form}
                           </div>
-                          
-                          <div style={{ marginBottom: '2px' }}>
+
+                          <div style={{ marginBottom: '2px', fontSize: '8px' }}>
                             <span style={{ fontWeight: '600' }}>NDC: </span>
                             {selectedUnit.drug.ndcId}
                           </div>
-                          
-                          <div style={{ marginBottom: '2px' }}>
+
+                          <div style={{ marginBottom: '2px', fontSize: '8px' }}>
+                            <span style={{ fontWeight: '600' }}>Mfr Lot#: </span>
+                            {selectedUnit.manufacturerLotNumber || 'NOT RECORDED'}
+                          </div>
+
+                          <div style={{ marginBottom: '2px', fontSize: '8px' }}>
                             <span style={{ fontWeight: '600' }}>Qty: </span>
                             {selectedUnit.availableQuantity} / {selectedUnit.totalQuantity}
                           </div>
-                          
-                          <div style={{ marginBottom: '2px' }}>
+
+                          <div style={{ marginBottom: '2px', fontSize: '8px' }}>
                             <span style={{ fontWeight: '600' }}>EXP: </span>
                             {new Date(selectedUnit.expiryDate).toLocaleDateString('en-US', { month: '2-digit', year: 'numeric' })}
                           </div>
-                          
-                          <div style={{ marginBottom: '2px' }}>
-                            <span style={{ fontWeight: '600' }}>LOT: </span>
+
+                          <div style={{ marginBottom: '2px', fontSize: '8px' }}>
+                            <span style={{ fontWeight: '600' }}>Source: </span>
                             {selectedUnit.lot?.source || 'N/A'}
                           </div>
-                          
+
                           {selectedUnit.lot?.location && (
-                            <div style={{ fontSize: '8px', color: '#666' }}>
+                            <div style={{ fontSize: '7px', color: '#666' }}>
                               Store: {selectedUnit.lot.location.name}
                             </div>
                           )}
-                          
-                          <div style={{ 
-                            fontSize: '7px', 
-                            color: '#888', 
+
+                          <div style={{
+                            fontSize: '6px',
+                            color: '#888',
                             marginTop: 'auto',
                             borderTop: '1px solid #eee',
                             paddingTop: '2px',
                           }}>
-                            DaanaRX • For Clinic Use Only
+                            DaanaRX • For Clinic Use Only • FDA-Tracked Medication
                           </div>
                         </div>
                       </div>

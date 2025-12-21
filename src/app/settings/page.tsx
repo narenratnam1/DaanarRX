@@ -124,6 +124,48 @@ const CREATE_CLINIC = gql`
   }
 `;
 
+const DELETE_CLINIC = gql`
+  mutation DeleteClinic($clinicId: ID!) {
+    deleteClinic(clinicId: $clinicId)
+  }
+`;
+
+const SWITCH_CLINIC = gql`
+  mutation SwitchClinic($clinicId: ID!) {
+    switchClinic(clinicId: $clinicId) {
+      token
+      user {
+        userId
+        username
+        email
+        clinicId
+        userRole
+      }
+      clinic {
+        clinicId
+        name
+        primaryColor
+        secondaryColor
+        logoUrl
+      }
+    }
+  }
+`;
+
+const GET_USER_CLINICS = gql`
+  query GetUserClinics {
+    getUserClinics {
+      clinicId
+      name
+      primaryColor
+      secondaryColor
+      logoUrl
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
 export default function SettingsPage() {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -136,7 +178,7 @@ export default function SettingsPage() {
   const [userRole, setUserRole] = useState('employee');
   const [createClinicModalOpened, setCreateClinicModalOpened] = useState(false);
   const [newClinicName, setNewClinicName] = useState('');
-  const [password, setPassword] = useState('');
+  const [deleteClinicId, setDeleteClinicId] = useState<string | null>(null);
 
   const { data: usersData } = useQuery<GetUsersResponse>(GET_USERS, {
     skip: !isSuperadmin,
@@ -145,6 +187,8 @@ export default function SettingsPage() {
   const { data: invitationsData, refetch: refetchInvitations } = useQuery(GET_INVITATIONS, {
     skip: !isSuperadmin,
   });
+
+  const { data: clinicsData, refetch: refetchClinics } = useQuery(GET_USER_CLINICS);
 
   const [sendInvitation, { loading }] = useMutation(SEND_INVITATION, {
     onCompleted: () => {
@@ -217,7 +261,51 @@ export default function SettingsPage() {
 
       setCreateClinicModalOpened(false);
       setNewClinicName('');
-      setPassword('');
+      refetchClinics();
+      router.push('/');
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const [deleteClinic, { loading: deleteClinicLoading }] = useMutation(DELETE_CLINIC, {
+    onCompleted: () => {
+      toast({
+        title: 'Success',
+        description: 'Clinic deleted successfully',
+      });
+      setDeleteClinicId(null);
+      refetchClinics();
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const [switchClinic, { loading: switchClinicLoading }] = useMutation(SWITCH_CLINIC, {
+    onCompleted: (data) => {
+      dispatch(
+        setAuth({
+          user: data.switchClinic.user,
+          clinic: data.switchClinic.clinic,
+          token: data.switchClinic.token,
+        })
+      );
+
+      toast({
+        title: 'Success',
+        description: `Switched to "${data.switchClinic.clinic.name}"`,
+      });
+
       router.push('/');
     },
     onError: (error) => {
@@ -262,10 +350,10 @@ export default function SettingsPage() {
   };
 
   const handleCreateClinic = () => {
-    if (!newClinicName || !password) {
+    if (!newClinicName) {
       toast({
         title: 'Error',
-        description: 'Please fill in all fields',
+        description: 'Please enter a clinic name',
         variant: 'destructive',
       });
       return;
@@ -275,9 +363,20 @@ export default function SettingsPage() {
       variables: {
         input: {
           name: newClinicName,
-          password,
         },
       },
+    });
+  };
+
+  const handleSwitchClinic = (clinicId: string) => {
+    switchClinic({
+      variables: { clinicId },
+    });
+  };
+
+  const handleDeleteClinic = (clinicId: string) => {
+    deleteClinic({
+      variables: { clinicId },
     });
   };
 
@@ -440,6 +539,74 @@ export default function SettingsPage() {
           </Card>
         )}
 
+        {/* Manage Clinics Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Manage Clinics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {clinicsData?.getUserClinics && clinicsData.getUserClinics.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Clinic Name</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clinicsData.getUserClinics.map((clinic: any) => {
+                      const isActive = clinic.clinicId === currentUser?.clinicId;
+                      return (
+                        <TableRow key={clinic.clinicId}>
+                          <TableCell className="font-medium">{clinic.name}</TableCell>
+                          <TableCell className="text-sm">
+                            {new Date(clinic.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {isActive ? (
+                              <Badge variant="default">Active</Badge>
+                            ) : (
+                              <Badge variant="outline">Inactive</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {!isActive && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSwitchClinic(clinic.clinicId)}
+                                  disabled={switchClinicLoading}
+                                >
+                                  {switchClinicLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                  Switch
+                                </Button>
+                              )}
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => setDeleteClinicId(clinic.clinicId)}
+                                disabled={deleteClinicLoading || clinicsData.getUserClinics.length === 1}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No clinics found</p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Users Card - Superadmin only */}
         {isSuperadmin && (
           <Card>
@@ -538,7 +705,7 @@ export default function SettingsPage() {
             <DialogHeader>
               <DialogTitle>Create New Clinic</DialogTitle>
               <DialogDescription>
-                Create a new clinic and become its superadmin. You'll be able to switch between your clinics using the clinic switcher in the top left.
+                Create a new clinic and become its superadmin. You'll be able to switch between your clinics using the clinic switcher.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -554,20 +721,6 @@ export default function SettingsPage() {
                   Choose a name for your new clinic
                 </p>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="verify-password">Your Password *</Label>
-                <Input
-                  id="verify-password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Verify your identity by entering your account password
-                </p>
-              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateClinicModalOpened(false)}>
@@ -576,6 +729,31 @@ export default function SettingsPage() {
               <Button onClick={handleCreateClinic} disabled={createClinicLoading}>
                 {createClinicLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Clinic
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Clinic Confirmation Modal */}
+        <Dialog open={!!deleteClinicId} onOpenChange={() => setDeleteClinicId(null)}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Delete Clinic</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this clinic? This will remove you from the clinic. If you are the only user, the clinic and all its data will be permanently deleted.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteClinicId(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteClinicId && handleDeleteClinic(deleteClinicId)}
+                disabled={deleteClinicLoading}
+              >
+                {deleteClinicLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Delete Clinic
               </Button>
             </DialogFooter>
           </DialogContent>

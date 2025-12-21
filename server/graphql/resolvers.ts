@@ -407,11 +407,29 @@ export const resolvers = {
 
     createClinic: async (
       _: unknown,
-      { input }: { input: { name: string; password: string } },
+      { input }: { input: { name: string } },
       context: GraphQLContext
     ) => {
       const { user } = requireAuth(context);
-      return authService.createClinic(user.userId, input.name, input.password);
+      return authService.createClinic(user.userId, input.name);
+    },
+
+    deleteClinic: async (
+      _: unknown,
+      { clinicId }: { clinicId: string },
+      context: GraphQLContext
+    ) => {
+      const { user } = requireAuth(context);
+      return authService.deleteClinic(user.userId, clinicId);
+    },
+
+    switchClinic: async (
+      _: unknown,
+      { clinicId }: { clinicId: string },
+      context: GraphQLContext
+    ) => {
+      const { user } = requireAuth(context);
+      return authService.switchClinic(user.userId, clinicId);
     },
 
     // Feedback
@@ -422,6 +440,24 @@ export const resolvers = {
     ) => {
       const { user, clinic } = requireAuth(context);
       return feedbackService.createFeedback(input, user.userId, clinic.clinicId);
+    },
+  },
+
+  // Field resolvers
+  Lot: {
+    location: async (lot: any, _: unknown, context: GraphQLContext) => {
+      // If location is already present in the lot object, return it
+      if (lot.location) {
+        return lot.location;
+      }
+
+      // Otherwise, fetch it from the database
+      if (!lot.locationId) {
+        return null;
+      }
+
+      const { clinic } = requireAuth(context);
+      return locationService.getLocationById(lot.locationId, clinic.clinicId);
     },
   },
 };

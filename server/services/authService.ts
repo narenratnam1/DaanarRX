@@ -396,7 +396,7 @@ export async function checkEmailExists(email: string): Promise<{ exists: boolean
 /**
  * Create a new clinic for an existing user
  */
-export async function createClinic(userId: string, clinicName: string, password: string): Promise<AuthResponse> {
+export async function createClinic(userId: string, clinicName: string): Promise<AuthResponse> {
   // Get the existing user
   const { data: user, error: userError } = await supabaseServer
     .from('users')
@@ -406,16 +406,6 @@ export async function createClinic(userId: string, clinicName: string, password:
 
   if (userError || !user) {
     throw new Error('User not found');
-  }
-
-  // Verify the password
-  const { error: signInError } = await supabaseAuth.auth.signInWithPassword({
-    email: user.email,
-    password,
-  });
-
-  if (signInError) {
-    throw new Error('Invalid password');
   }
 
   // Create the new clinic
@@ -474,3 +464,137 @@ export async function createClinic(userId: string, clinicName: string, password:
     },
   };
 }
+
+/**
+ * Delete a clinic (only if user is superadmin of that clinic)
+ */
+export async function deleteClinic(userId: string, clinicId: string): Promise<boolean> {
+  // Check if user has access to this clinic
+  const { data: user, error: userError } = await supabaseServer
+    .from('users')
+    .select('clinic_ids')
+    .eq('user_id', userId)
+    .single();
+
+  if (userError || !user) {
+    throw new Error('User not found');
+  }
+
+  // Check if clinic exists in user's clinic_ids
+  if (!user.clinic_ids || !user.clinic_ids.includes(clinicId)) {
+    throw new Error('You do not have access to this clinic');
+  }
+
+  // Remove user from clinic
+  const { error: removeError } = await supabaseServer.rpc('remove_user_from_clinic', {
+    p_user_id: userId,
+    p_clinic_id: clinicId,
+  });
+
+  if (removeError) {
+    throw new Error(`Failed to remove user from clinic: ${removeError.message}`);
+  }
+
+  // Check if clinic has any other users
+  const { data: clinic, error: clinicError } = await supabaseServer
+    .from('clinics')
+    .select('user_ids')
+    .eq('clinic_id', clinicId)
+    .single();
+
+  if (clinicError) {
+    throw new Error('Clinic not found');
+  }
+
+  // If clinic has no more users, delete it completely
+  if (!clinic.user_ids || clinic.user_ids.length === 0) {
+    const { error: deleteError } = await supabaseServer
+      .from('clinics')
+      .delete()
+      .eq('clinic_id', clinicId);
+
+    if (deleteError) {
+      throw new Error(`Failed to delete clinic: ${deleteError.message}`);
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Switch user's active clinic
+ */
+export async function switchClinic(userId: string, clinicId: string): Promise<AuthResponse> {
+  // Get user
+  const { data: user, error: userError } = await supabaseServer
+    .from('users')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (userError || !user) {
+    throw new Error('User not found');
+  }
+
+  // Check if user has access to this clinic
+  if (!user.clinic_ids || !user.clinic_ids.includes(clinicId)) {
+    throw new Error('You do not have access to this clinic');
+  }
+
+  // Switch active clinic using the helper function
+  const { error: switchError } = await supabaseServer.rpc('switch_active_clinic', {
+    p_user_id: userId,
+    p_clinic_id: clinicId,
+  });
+
+  if (switchError) {
+    throw new Error(`Failed to switch clinic: ${switchError.message}`);
+  }
+
+  // Get clinic
+  const { data: clinic, error: clinicError } = await supabaseServer
+    .from('clinics')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .single();
+
+  if (clinicError || !clinic) {
+    throw new Error('Clinic not found');
+  }
+
+  // Get user's role in this specific clinic
+  // For now, we'll use the role from the users table
+  // In a more advanced system, you might have a user_clinic_roles junction table
+  const userRole = user.clinic_id === clinicId ? user.user_role : 'admin';
+
+  // Generate new JWT token with the new clinic
+  const token = generateToken({
+    userId: user.user_id,
+    clinicId: clinic.clinic_id,
+    userRole: userRole,
+  });
+
+  return {
+    token,
+    user: {
+      userId: user.user_id,
+      username: user.username,
+      password: '',
+      email: user.email,
+      clinicId: clinic.clinic_id,
+      userRole: userRole,
+      createdAt: new Date(user.created_at),
+      updatedAt: new Date(user.updated_at),
+    },
+    clinic: {
+      clinicId: clinic.clinic_id,
+      name: clinic.name,
+      primaryColor: clinic.primary_color,
+      secondaryColor: clinic.secondary_color,
+      logoUrl: clinic.logo_url,
+      createdAt: new Date(clinic.created_at),
+      updatedAt: new Date(clinic.updated_at),
+    },
+  };
+}
+

@@ -195,6 +195,7 @@ export default function ReportsPage() {
                       <TableHead className="font-semibold">Medication</TableHead>
                       <TableHead className="font-semibold">Type</TableHead>
                       <TableHead className="font-semibold">Quantity</TableHead>
+                      <TableHead className="font-semibold">Location</TableHead>
                       <TableHead className="font-semibold">User</TableHead>
                       <TableHead className="font-semibold">Patient</TableHead>
                     </TableRow>
@@ -235,6 +236,15 @@ export default function ReportsPage() {
                           >
                             {tx.type === 'check_out' ? `-${tx.quantity}` : `+${tx.quantity}`}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {tx.unit?.lot?.location ? (
+                            <Badge variant="outline" className="px-3 py-1">
+                              {tx.unit.lot.location.name}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm font-medium">{tx.user?.username || '-'}</TableCell>
                         <TableCell>
