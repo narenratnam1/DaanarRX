@@ -60,7 +60,7 @@ export async function createUnit(
     .select(`
       *,
       drug:drugs(*),
-      lot:lots!units_lot_clinic_fkey(*),
+      lot:lots!units_lot_id_fkey(*),
       user:users(*)
     `)
     .single();
@@ -100,7 +100,7 @@ export async function getUnitById(unitId: string, clinicId: string): Promise<Uni
     .select(`
       *,
       drug:drugs(*),
-      lot:lots!units_lot_clinic_fkey(*),
+      lot:lots!units_lot_id_fkey(*),
       user:users(*)
     `)
     .eq('unit_id', unitId)
@@ -128,7 +128,7 @@ export async function getUnits(
     .select(`
       *,
       drug:drugs(*),
-      lot:lots!units_lot_clinic_fkey(*),
+      lot:lots!units_lot_id_fkey(*),
       user:users(*)
     `, { count: 'exact' })
     .eq('clinic_id', clinicId);
@@ -208,7 +208,7 @@ export async function searchUnits(query: string, clinicId: string): Promise<Unit
       .select(`
         *,
         drug:drugs(*),
-        lot:lots!units_lot_clinic_fkey(*),
+        lot:lots!units_lot_id_fkey(*),
         user:users(*)
       `)
       .eq('clinic_id', clinicId)
@@ -305,7 +305,7 @@ export async function updateUnit(
     .select(`
       *,
       drug:drugs(*),
-      lot:lots!units_lot_clinic_fkey(*),
+      lot:lots!units_lot_id_fkey(*),
       user:users(*)
     `)
     .single();
@@ -428,4 +428,364 @@ export async function getDashboardStats(clinicId: string) {
     recentCheckOuts: recentCheckOuts || 0,
     lowStockAlerts,
   };
+}
+
+/**
+ * Advanced filtering for units inventory
+ */
+export async function getUnitsAdvanced(
+  clinicId: string,
+  filters: {
+    expiryDateFrom?: string;
+    expiryDateTo?: string;
+    locationIds?: string[];
+    minStrength?: number;
+    maxStrength?: number;
+    strengthUnit?: string;
+    expirationWindow?: 'EXPIRED' | 'EXPIRING_7_DAYS' | 'EXPIRING_30_DAYS' | 'EXPIRING_60_DAYS' | 'EXPIRING_90_DAYS' | 'ALL';
+    medicationName?: string;
+    genericName?: string;
+    ndcId?: string;
+    sortBy?: 'EXPIRY_DATE' | 'MEDICATION_NAME' | 'QUANTITY' | 'CREATED_DATE' | 'STRENGTH';
+    sortOrder?: 'ASC' | 'DESC';
+  },
+  page: number = 1,
+  pageSize: number = 50
+) {
+  const today = new Date().toISOString().split('T')[0];
+
+  // Start building the query
+  let query = supabaseServer
+    .from('units')
+    .select(`
+      *,
+      drug:drugs(*),
+      lot:lots!units_lot_id_fkey(*, location:locations!lots_location_id_fkey(*)),
+      user:users(*)
+    `, { count: 'exact' })
+    .eq('clinic_id', clinicId);
+
+  // Apply expiration window filter
+  if (filters.expirationWindow) {
+    switch (filters.expirationWindow) {
+      case 'EXPIRED':
+        query = query.lt('expiry_date', today);
+        break;
+      case 'EXPIRING_7_DAYS': {
+        const sevenDays = new Date();
+        sevenDays.setDate(sevenDays.getDate() + 7);
+        query = query.gte('expiry_date', today).lte('expiry_date', sevenDays.toISOString().split('T')[0]);
+        break;
+      }
+      case 'EXPIRING_30_DAYS': {
+        const thirtyDays = new Date();
+        thirtyDays.setDate(thirtyDays.getDate() + 30);
+        query = query.gte('expiry_date', today).lte('expiry_date', thirtyDays.toISOString().split('T')[0]);
+        break;
+      }
+      case 'EXPIRING_60_DAYS': {
+        const sixtyDays = new Date();
+        sixtyDays.setDate(sixtyDays.getDate() + 60);
+        query = query.gte('expiry_date', today).lte('expiry_date', sixtyDays.toISOString().split('T')[0]);
+        break;
+      }
+      case 'EXPIRING_90_DAYS': {
+        const ninetyDays = new Date();
+        ninetyDays.setDate(ninetyDays.getDate() + 90);
+        query = query.gte('expiry_date', today).lte('expiry_date', ninetyDays.toISOString().split('T')[0]);
+        break;
+      }
+      // 'ALL' doesn't filter
+    }
+  }
+
+  // Apply date range filters (override expiration window if both provided)
+  if (filters.expiryDateFrom) {
+    query = query.gte('expiry_date', filters.expiryDateFrom);
+  }
+  if (filters.expiryDateTo) {
+    query = query.lte('expiry_date', filters.expiryDateTo);
+  }
+
+  // Apply sorting
+  const sortField = filters.sortBy || 'EXPIRY_DATE';
+  const sortOrder = filters.sortOrder || 'ASC';
+  const ascending = sortOrder === 'ASC';
+
+  switch (sortField) {
+    case 'EXPIRY_DATE':
+      query = query.order('expiry_date', { ascending });
+      break;
+    case 'CREATED_DATE':
+      query = query.order('date_created', { ascending });
+      break;
+    case 'QUANTITY':
+      query = query.order('available_quantity', { ascending });
+      break;
+    // MEDICATION_NAME and STRENGTH will be sorted client-side after fetching
+    default:
+      query = query.order('expiry_date', { ascending });
+  }
+
+  // Apply pagination
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  query = query.range(from, to);
+
+  const { data: units, error, count } = await query;
+
+  if (error) {
+    throw new Error(`Failed to get units: ${error.message}`);
+  }
+
+  let filteredUnits = units || [];
+
+  // Apply client-side filters for joined data and complex conditions
+  if (filteredUnits.length > 0) {
+    filteredUnits = filteredUnits.filter((unit: any) => {
+      // Filter by location
+      if (filters.locationIds && filters.locationIds.length > 0) {
+        if (!unit.lot || !filters.locationIds.includes(unit.lot.location_id)) {
+          return false;
+        }
+      }
+
+      // Filter by strength range
+      if (unit.drug) {
+        if (filters.minStrength !== undefined && unit.drug.strength < filters.minStrength) {
+          return false;
+        }
+        if (filters.maxStrength !== undefined && unit.drug.strength > filters.maxStrength) {
+          return false;
+        }
+        if (filters.strengthUnit && unit.drug.strength_unit !== filters.strengthUnit) {
+          return false;
+        }
+      }
+
+      // Filter by medication name
+      if (filters.medicationName && unit.drug) {
+        const searchTerm = filters.medicationName.toLowerCase();
+        if (!unit.drug.medication_name.toLowerCase().includes(searchTerm)) {
+          return false;
+        }
+      }
+
+      // Filter by generic name
+      if (filters.genericName && unit.drug) {
+        const searchTerm = filters.genericName.toLowerCase();
+        if (!unit.drug.generic_name.toLowerCase().includes(searchTerm)) {
+          return false;
+        }
+      }
+
+      // Filter by NDC ID
+      if (filters.ndcId && unit.drug) {
+        if (unit.drug.ndc_id !== filters.ndcId) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // Sort by medication name or strength if requested (client-side)
+    if (sortField === 'MEDICATION_NAME') {
+      filteredUnits.sort((a: any, b: any) => {
+        const nameA = a.drug?.medication_name || '';
+        const nameB = b.drug?.medication_name || '';
+        return ascending ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      });
+    } else if (sortField === 'STRENGTH') {
+      filteredUnits.sort((a: any, b: any) => {
+        const strengthA = a.drug?.strength || 0;
+        const strengthB = b.drug?.strength || 0;
+        return ascending ? strengthA - strengthB : strengthB - strengthA;
+      });
+    }
+  }
+
+  return {
+    units: filteredUnits.map(formatUnit),
+    total: count || 0,
+    page,
+    pageSize,
+  };
+}
+
+/**
+ * Get medications expiring within N days
+ */
+export async function getMedicationsExpiring(days: number, clinicId: string) {
+  const today = new Date();
+  const futureDate = new Date();
+  futureDate.setDate(futureDate.getDate() + days);
+
+  const { data: units, error } = await supabaseServer
+    .from('units')
+    .select(`
+      *,
+      drug:drugs(*),
+      lot:lots!units_lot_id_fkey(*),
+      user:users(*)
+    `)
+    .eq('clinic_id', clinicId)
+    .gte('expiry_date', today.toISOString().split('T')[0])
+    .lte('expiry_date', futureDate.toISOString().split('T')[0])
+    .gt('available_quantity', 0)
+    .order('expiry_date', { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to get expiring medications: ${error.message}`);
+  }
+
+  // Group by drug and expiry date
+  const medicationMap = new Map<string, any>();
+
+  units?.forEach((unit: any) => {
+    const key = `${unit.drug_id}-${unit.expiry_date}`;
+    if (!medicationMap.has(key)) {
+      const daysUntil = Math.ceil((new Date(unit.expiry_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      medicationMap.set(key, {
+        drugId: unit.drug.drug_id,
+        medicationName: unit.drug.medication_name,
+        genericName: unit.drug.generic_name,
+        strength: unit.drug.strength,
+        strengthUnit: unit.drug.strength_unit,
+        ndcId: unit.drug.ndc_id,
+        totalUnits: 0,
+        totalQuantity: 0,
+        expiryDate: unit.expiry_date,
+        daysUntilExpiry: daysUntil,
+        units: [],
+      });
+    }
+
+    const medication = medicationMap.get(key);
+    medication.totalUnits += 1;
+    medication.totalQuantity += unit.available_quantity;
+    medication.units.push(formatUnit(unit));
+  });
+
+  return Array.from(medicationMap.values());
+}
+
+/**
+ * Get expiry report with summary
+ */
+export async function getExpiryReport(clinicId: string) {
+  const today = new Date();
+
+  // Get all units with available quantity
+  const { data: units, error } = await supabaseServer
+    .from('units')
+    .select(`
+      *,
+      drug:drugs(*),
+      lot:lots!units_lot_id_fkey(*),
+      user:users(*)
+    `)
+    .eq('clinic_id', clinicId)
+    .gt('available_quantity', 0)
+    .order('expiry_date', { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to get expiry report: ${error.message}`);
+  }
+
+  const date7 = new Date(today);
+  date7.setDate(date7.getDate() + 7);
+  const date30 = new Date(today);
+  date30.setDate(date30.getDate() + 30);
+  const date60 = new Date(today);
+  date60.setDate(date60.getDate() + 60);
+  const date90 = new Date(today);
+  date90.setDate(date90.getDate() + 90);
+
+  let expired = 0;
+  let expiring7Days = 0;
+  let expiring30Days = 0;
+  let expiring60Days = 0;
+  let expiring90Days = 0;
+
+  const medicationMap = new Map<string, any>();
+
+  units?.forEach((unit: any) => {
+    const expiryDate = new Date(unit.expiry_date);
+    const key = `${unit.drug_id}-${unit.expiry_date}`;
+
+    // Count for summary
+    if (expiryDate < today) {
+      expired++;
+    } else if (expiryDate <= date7) {
+      expiring7Days++;
+    } else if (expiryDate <= date30) {
+      expiring30Days++;
+    } else if (expiryDate <= date60) {
+      expiring60Days++;
+    } else if (expiryDate <= date90) {
+      expiring90Days++;
+    }
+
+    // Group medications
+    if (!medicationMap.has(key)) {
+      const daysUntil = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      medicationMap.set(key, {
+        drugId: unit.drug.drug_id,
+        medicationName: unit.drug.medication_name,
+        genericName: unit.drug.generic_name,
+        strength: unit.drug.strength,
+        strengthUnit: unit.drug.strength_unit,
+        ndcId: unit.drug.ndc_id,
+        totalUnits: 0,
+        totalQuantity: 0,
+        expiryDate: unit.expiry_date,
+        daysUntilExpiry: daysUntil,
+        units: [],
+      });
+    }
+
+    const medication = medicationMap.get(key);
+    medication.totalUnits += 1;
+    medication.totalQuantity += unit.available_quantity;
+    medication.units.push(formatUnit(unit));
+  });
+
+  return {
+    summary: {
+      expired,
+      expiring7Days,
+      expiring30Days,
+      expiring60Days,
+      expiring90Days,
+      total: units?.length || 0,
+    },
+    medications: Array.from(medicationMap.values()),
+  };
+}
+
+/**
+ * Get inventory by location
+ */
+export async function getInventoryByLocation(locationId: string, clinicId: string) {
+  const { data: units, error } = await supabaseServer
+    .from('units')
+    .select(`
+      *,
+      drug:drugs(*),
+      lot:lots!units_lot_id_fkey(*),
+      user:users(*)
+    `)
+    .eq('clinic_id', clinicId)
+    .gt('available_quantity', 0)
+    .order('expiry_date', { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to get inventory by location: ${error.message}`);
+  }
+
+  // Filter by location (lot's location_id)
+  const filteredUnits = units?.filter((unit: any) => unit.lot?.location_id === locationId) || [];
+
+  return filteredUnits.map(formatUnit);
 }

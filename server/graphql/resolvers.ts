@@ -218,6 +218,71 @@ export const resolvers = {
       return unitService.searchUnits(query, requestedClinicId);
     },
 
+    // Advanced Inventory Queries
+    getUnitsAdvanced: async (
+      _: unknown,
+      { filters, page, pageSize }: { filters?: any; page?: number; pageSize?: number },
+      context: GraphQLContext
+    ) => {
+      const { clinic } = requireAuth(context);
+      return unitService.getUnitsAdvanced(clinic.clinicId, filters || {}, page, pageSize);
+    },
+
+    getMedicationsExpiring: async (
+      _: unknown,
+      { days, clinicId }: { days: number; clinicId?: string },
+      context: GraphQLContext
+    ) => {
+      const { user, clinic } = requireAuth(context);
+
+      const requestedClinicId = clinicId?.trim();
+      if (!requestedClinicId || requestedClinicId === clinic.clinicId) {
+        return unitService.getMedicationsExpiring(days, clinic.clinicId);
+      }
+
+      // Verify the user can access the requested clinic
+      const hasAccess = await verifyUserClinicAccess(user.userId, requestedClinicId);
+      if (!hasAccess) {
+        throw new GraphQLError('Insufficient permissions', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      return unitService.getMedicationsExpiring(days, requestedClinicId);
+    },
+
+    getExpiryReport: async (
+      _: unknown,
+      { clinicId }: { clinicId?: string },
+      context: GraphQLContext
+    ) => {
+      const { user, clinic } = requireAuth(context);
+
+      const requestedClinicId = clinicId?.trim();
+      if (!requestedClinicId || requestedClinicId === clinic.clinicId) {
+        return unitService.getExpiryReport(clinic.clinicId);
+      }
+
+      // Verify the user can access the requested clinic
+      const hasAccess = await verifyUserClinicAccess(user.userId, requestedClinicId);
+      if (!hasAccess) {
+        throw new GraphQLError('Insufficient permissions', {
+          extensions: { code: 'FORBIDDEN' },
+        });
+      }
+
+      return unitService.getExpiryReport(requestedClinicId);
+    },
+
+    getInventoryByLocation: async (
+      _: unknown,
+      { locationId }: { locationId: string },
+      context: GraphQLContext
+    ) => {
+      const { clinic } = requireAuth(context);
+      return unitService.getInventoryByLocation(locationId, clinic.clinicId);
+    },
+
     // Transactions
     getTransactions: async (
       _: unknown,

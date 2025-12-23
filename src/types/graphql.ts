@@ -219,3 +219,76 @@ export interface DeleteClinicResponse {
 export interface SwitchClinicResponse {
   switchClinic: AuthPayload;
 }
+
+// Advanced Inventory Query Types
+export interface UnitDataWithLocation {
+  unitId: string;
+  totalQuantity: number;
+  availableQuantity: number;
+  expiryDate: string;
+  optionalNotes?: string | null;
+  manufacturerLotNumber?: string | null;
+  dateCreated: string;
+  drug: DrugData;
+  lot: {
+    lotId: string;
+    source: string;
+    note?: string | null;
+    dateCreated: string;
+    locationId: string;
+    clinicId: string;
+    location?: LocationData;
+  };
+  user?: {
+    userId: string;
+    username: string;
+    email: string;
+  };
+}
+
+export interface GetUnitsAdvancedResponse {
+  getUnitsAdvanced: {
+    units: UnitDataWithLocation[];
+    total: number;
+    page: number;
+    pageSize: number;
+  };
+}
+
+export interface MedicationExpiringData {
+  drugId: string;
+  medicationName: string;
+  genericName: string;
+  strength: number;
+  strengthUnit: string;
+  ndcId: string;
+  totalUnits: number;
+  totalQuantity: number;
+  expiryDate: string;
+  daysUntilExpiry: number;
+  units: UnitDataWithLocation[];
+}
+
+export interface GetMedicationsExpiringResponse {
+  getMedicationsExpiring: MedicationExpiringData[];
+}
+
+export interface ExpiryReportSummaryData {
+  expired: number;
+  expiring7Days: number;
+  expiring30Days: number;
+  expiring60Days: number;
+  expiring90Days: number;
+  total: number;
+}
+
+export interface GetExpiryReportResponse {
+  getExpiryReport: {
+    summary: ExpiryReportSummaryData;
+    medications: MedicationExpiringData[];
+  };
+}
+
+export interface GetInventoryByLocationResponse {
+  getInventoryByLocation: UnitDataWithLocation[];
+}

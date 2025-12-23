@@ -50,8 +50,8 @@ const GET_USER_CLINICS = gql`
       primaryColor
       secondaryColor
       logoUrl
-      userRole
-      joinedAt
+      createdAt
+      updatedAt
     }
   }
 `;

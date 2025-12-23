@@ -174,6 +174,28 @@ export const typeDefs = `#graphql
     Other
   }
 
+  enum ExpirationWindow {
+    EXPIRED
+    EXPIRING_7_DAYS
+    EXPIRING_30_DAYS
+    EXPIRING_60_DAYS
+    EXPIRING_90_DAYS
+    ALL
+  }
+
+  enum SortOrder {
+    ASC
+    DESC
+  }
+
+  enum UnitSortField {
+    EXPIRY_DATE
+    MEDICATION_NAME
+    QUANTITY
+    CREATED_DATE
+    STRENGTH
+  }
+
   input SignUpInput {
     email: String!
     password: String!
@@ -294,6 +316,49 @@ export const typeDefs = `#graphql
     feedbackMessage: String!
   }
 
+  input InventoryFilters {
+    expiryDateFrom: Date
+    expiryDateTo: Date
+    locationIds: [ID!]
+    minStrength: Float
+    maxStrength: Float
+    strengthUnit: String
+    expirationWindow: ExpirationWindow
+    medicationName: String
+    genericName: String
+    ndcId: String
+    sortBy: UnitSortField
+    sortOrder: SortOrder
+  }
+
+  type MedicationExpiring {
+    drugId: ID!
+    medicationName: String!
+    genericName: String!
+    strength: Float!
+    strengthUnit: String!
+    ndcId: String!
+    totalUnits: Int!
+    totalQuantity: Int!
+    expiryDate: Date!
+    daysUntilExpiry: Int!
+    units: [Unit!]!
+  }
+
+  type ExpiryReportSummary {
+    expired: Int!
+    expiring7Days: Int!
+    expiring30Days: Int!
+    expiring60Days: Int!
+    expiring90Days: Int!
+    total: Int!
+  }
+
+  type ExpiryReport {
+    summary: ExpiryReportSummary!
+    medications: [MedicationExpiring!]!
+  }
+
   type EmailCheckResult {
     exists: Boolean!
     message: String!
@@ -334,6 +399,12 @@ export const typeDefs = `#graphql
     getUnits(page: Int, pageSize: Int, search: String, clinicId: ID): PaginatedUnits!
     getUnit(unitId: ID!, clinicId: ID): Unit
     searchUnitsByQuery(query: String!, clinicId: ID): [Unit!]!
+
+    # Advanced Inventory Queries
+    getUnitsAdvanced(filters: InventoryFilters, page: Int, pageSize: Int): PaginatedUnits!
+    getMedicationsExpiring(days: Int!, clinicId: ID): [MedicationExpiring!]!
+    getExpiryReport(clinicId: ID): ExpiryReport!
+    getInventoryByLocation(locationId: ID!): [Unit!]!
 
     # Transactions
     getTransactions(page: Int, pageSize: Int, search: String, unitId: ID, clinicId: ID): PaginatedTransactions!

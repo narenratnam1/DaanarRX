@@ -14,7 +14,16 @@ import {
 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { AppShell } from '../../components/layout/AppShell';
-import { TransactionData, GetLocationsResponse, LocationData, DrugData } from '../../types/graphql';
+import {
+  TransactionData,
+  GetUnitsAdvancedResponse,
+  UnitDataWithLocation,
+} from '../../types/graphql';
+import {
+  InventoryFiltersState,
+  filtersStateToInput,
+} from '../../types/inventory';
+import { AdvancedInventoryFilters } from '@/components/inventory/AdvancedInventoryFilters';
 import { UnitLabel } from '@/components/unit-label/UnitLabel';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -39,13 +48,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -64,9 +66,9 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
-const GET_UNITS = gql`
-  query GetUnits($page: Int, $pageSize: Int, $search: String, $clinicId: ID) {
-    getUnits(page: $page, pageSize: $pageSize, search: $search, clinicId: $clinicId) {
+const GET_UNITS_ADVANCED = gql`
+  query GetUnitsAdvanced($filters: InventoryFilters, $page: Int, $pageSize: Int) {
+    getUnitsAdvanced(filters: $filters, page: $page, pageSize: $pageSize) {
       units {
         unitId
         totalQuantity
@@ -74,7 +76,9 @@ const GET_UNITS = gql`
         expiryDate
         optionalNotes
         manufacturerLotNumber
+        dateCreated
         drug {
+          drugId
           medicationName
           genericName
           strength
@@ -83,27 +87,27 @@ const GET_UNITS = gql`
           form
         }
         lot {
+          lotId
           source
+          note
+          dateCreated
+          locationId
+          clinicId
           location {
             locationId
             name
             temp
           }
         }
+        user {
+          userId
+          username
+          email
+        }
       }
       total
       page
       pageSize
-    }
-  }
-`;
-
-const GET_LOCATIONS = gql`
-  query GetLocations {
-    getLocations {
-      locationId
-      name
-      temp
     }
   }
 `;
@@ -136,25 +140,6 @@ const CHECK_OUT_UNIT = gql`
   }
 `;
 
-// Unit data with location info
-interface UnitDataWithLocation {
-  unitId: string;
-  totalQuantity: number;
-  availableQuantity: number;
-  expiryDate: string;
-  optionalNotes?: string | null;
-  manufacturerLotNumber?: string | null;
-  drug: DrugData;
-  lot?: {
-    source: string;
-    location?: {
-      locationId: string;
-      name: string;
-      temp: string;
-    };
-  };
-}
-
 interface TransactionWithUser extends TransactionData {
   user?: {
     username: string;
@@ -165,39 +150,26 @@ interface TransactionWithUser extends TransactionData {
 export default function InventoryPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterLocation, setFilterLocation] = useState<string>('all');
+  const [page, setPage] = useState<number>(1);
+  const [filters, setFilters] = useState<InventoryFiltersState>({});
   const [selectedUnit, setSelectedUnit] = useState<UnitDataWithLocation | null>(null);
-  const [modalOpened, setModalOpened] = useState(false);
+  const [modalOpened, setModalOpened] = useState<boolean>(false);
   const [quickCheckoutUnit, setQuickCheckoutUnit] = useState<UnitDataWithLocation | null>(null);
-  const [checkoutQuantity, setCheckoutQuantity] = useState('1');
-  const [checkoutModalOpened, setCheckoutModalOpened] = useState(false);
+  const [checkoutQuantity, setCheckoutQuantity] = useState<string>('1');
+  const [checkoutModalOpened, setCheckoutModalOpened] = useState<boolean>(false);
   const printRef = useRef<HTMLDivElement | null>(null);
 
   // Get current clinic from localStorage
   const clinicStr = typeof window !== 'undefined' ? localStorage.getItem('clinic') : null;
   const clinicId = clinicStr ? (() => { try { return JSON.parse(clinicStr).clinicId as string | undefined; } catch { return undefined; } })() : undefined;
 
-  // Combine search text with filters
-  const getSearchQuery = () => {
-    let query = search;
-    if (filterType !== 'all') {
-      query = query ? `${query} ${filterType}` : filterType;
-    }
-    if (filterLocation !== 'all') {
-      query = query ? `${query} ${filterLocation}` : filterLocation;
-    }
-    return query || undefined;
-  };
+  // Convert filter state to GraphQL input
+  const filterInput = filtersStateToInput(filters);
 
-  const { data, loading, refetch } = useQuery<{ getUnits: { units: UnitDataWithLocation[]; total: number; page: number; pageSize: number } }>(GET_UNITS, {
-    variables: { page, pageSize: 20, search: getSearchQuery(), clinicId },
+  const { data, loading, refetch } = useQuery<GetUnitsAdvancedResponse>(GET_UNITS_ADVANCED, {
+    variables: { filters: filterInput, page, pageSize: 20 },
     skip: !clinicId,
   });
-
-  const { data: locationsData } = useQuery<GetLocationsResponse>(GET_LOCATIONS);
 
   const [getTransactions, { data: transactionsData, loading: loadingTransactions }] =
     useLazyQuery<{ getTransactions: { transactions: TransactionWithUser[] } }>(GET_TRANSACTIONS);
@@ -222,13 +194,8 @@ export default function InventoryPage() {
     },
   });
 
-  const totalPages = data ? Math.ceil(data.getUnits.total / data.getUnits.pageSize) : 0;
-
-  // Filter units by location
-  const filteredUnits = data?.getUnits.units.filter((unit) => {
-    if (filterLocation === 'all') return true;
-    return unit.lot?.location?.locationId === filterLocation;
-  }) || [];
+  const totalPages = data ? Math.ceil(data.getUnitsAdvanced.total / data.getUnitsAdvanced.pageSize) : 0;
+  const units = data?.getUnitsAdvanced.units || [];
 
   const handleRowClick = (unit: UnitDataWithLocation) => {
     setSelectedUnit(unit);
@@ -311,8 +278,6 @@ export default function InventoryPage() {
     `,
   });
 
-  const locationOptions = locationsData?.getLocations || [];
-
   return (
     <AppShell>
       <div className="space-y-6 sm:space-y-8">
@@ -332,67 +297,28 @@ export default function InventoryPage() {
               </AlertDescription>
             </Alert>
 
-            <div className="space-y-3">
-              <Label htmlFor="inventory-search" className="text-base font-semibold">Search Inventory</Label>
-              <Input
-                id="inventory-search"
-                placeholder="Search by medication, NDC, source, lot, quantity, or notes..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end">
-              <div className="flex-1 space-y-3">
-                <Label className="text-base font-semibold">Filter by Form</Label>
-                <div className="flex flex-wrap gap-2">
-                  {['all', 'tablet', 'capsule', 'liquid', 'injection'].map((type) => (
-                    <Button
-                      key={type}
-                      variant={filterType === type ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        setFilterType(type);
-                        setPage(1);
-                      }}
-                      className="capitalize"
-                    >
-                      {type}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="w-full lg:w-[240px] space-y-3">
-                <Label htmlFor="location-filter" className="text-base font-semibold">Filter by Location</Label>
-                <Select value={filterLocation} onValueChange={(value) => {
-                  setFilterLocation(value);
-                  setPage(1);
-                }}>
-                  <SelectTrigger id="location-filter">
-                    <SelectValue placeholder="All Locations" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Locations</SelectItem>
-                    {locationOptions.map((loc: LocationData) => (
-                      <SelectItem key={loc.locationId} value={loc.locationId}>
-                        {loc.name} ({loc.temp.replace('_', ' ')})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            {/* Advanced Inventory Filters */}
+            <AdvancedInventoryFilters
+              filters={filters}
+              onFiltersChange={(newFilters: InventoryFiltersState) => {
+                setFilters(newFilters);
+                setPage(1); // Reset to first page when filters change
+              }}
+              onExport={() => {
+                // TODO: Implement CSV export
+                toast({
+                  title: 'Coming Soon',
+                  description: 'Export functionality will be available soon',
+                });
+              }}
+            />
           </CardContent>
 
           {loading && !data ? (
             <div className="flex justify-center items-center h-[300px]">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
-          ) : filteredUnits.length > 0 ? (
+          ) : units.length > 0 ? (
             <>
               <div className="overflow-x-auto -mx-1">
                 <Table>
@@ -408,7 +334,7 @@ export default function InventoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUnits.map((unit) => {
+                    {units.map((unit) => {
                       const isExpired = new Date(unit.expiryDate) < new Date();
                       const isExpiringSoon =
                         new Date(unit.expiryDate) <
