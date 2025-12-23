@@ -177,7 +177,6 @@ export function parseSmartSearch(query: string): ParsedQuery {
  */
 export function getSearchSuggestions(query: string): string[] {
   const suggestions: string[] = [];
-  const lowerQuery = query.toLowerCase();
 
   // Expiration suggestions
   if (/^exp|^expir/i.test(query)) {
