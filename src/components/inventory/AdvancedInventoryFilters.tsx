@@ -403,16 +403,16 @@ export function AdvancedInventoryFilters({
                 <div className="space-y-2">
                   <Label>Location</Label>
                   <Select
-                    value={filters.locationIds?.[0] || ''}
+                    value={filters.locationIds?.[0] || 'all'}
                     onValueChange={(value: string) => {
-                      updateFilter('locationIds', value ? [value] : undefined);
+                      updateFilter('locationIds', value === 'all' ? undefined : [value]);
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="All Locations" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Locations</SelectItem>
+                      <SelectItem value="all">All Locations</SelectItem>
                       {locationsData.getLocations.map((location) => (
                         <SelectItem key={location.locationId} value={location.locationId}>
                           {location.name} ({location.temp})
