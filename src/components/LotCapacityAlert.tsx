@@ -52,6 +52,11 @@ export function LotCapacityAlert({
             current={currentCapacity} 
             max={maxCapacity}
           />
+          {showAvailable && availableCapacity > 0 && (
+            <span className="ml-2 text-muted-foreground">
+              ({availableCapacity} available)
+            </span>
+          )}
         </div>
         {percentage >= 100 && (
           <div className="mt-2 text-sm font-medium">
