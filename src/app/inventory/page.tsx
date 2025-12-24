@@ -11,6 +11,9 @@ import {
   Printer,
   Info,
   Loader2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { AppShell } from '../../components/layout/AppShell';
@@ -140,6 +143,18 @@ const CHECK_OUT_UNIT = gql`
   }
 `;
 
+const UPDATE_UNIT = gql`
+  mutation UpdateUnit($input: UpdateUnitInput!) {
+    updateUnit(input: $input) {
+      unitId
+      totalQuantity
+      availableQuantity
+      expiryDate
+      optionalNotes
+    }
+  }
+`;
+
 interface TransactionWithUser extends TransactionData {
   user?: {
     username: string;
@@ -147,16 +162,28 @@ interface TransactionWithUser extends TransactionData {
   patientName?: string | null;
 }
 
+type SortField = 'MEDICATION_NAME' | 'STRENGTH' | 'QUANTITY' | 'EXPIRY_DATE' | 'CREATED_DATE';
+type SortOrder = 'ASC' | 'DESC';
+
 export default function InventoryPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [page, setPage] = useState<number>(1);
   const [filters, setFilters] = useState<InventoryFiltersState>({});
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('ASC');
   const [selectedUnit, setSelectedUnit] = useState<UnitDataWithLocation | null>(null);
   const [modalOpened, setModalOpened] = useState<boolean>(false);
   const [quickCheckoutUnit, setQuickCheckoutUnit] = useState<UnitDataWithLocation | null>(null);
   const [checkoutQuantity, setCheckoutQuantity] = useState<string>('1');
   const [checkoutModalOpened, setCheckoutModalOpened] = useState<boolean>(false);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [editedUnit, setEditedUnit] = useState<{
+    totalQuantity: number;
+    availableQuantity: number;
+    expiryDate: string;
+    optionalNotes: string;
+  } | null>(null);
   const printRef = useRef<HTMLDivElement | null>(null);
 
   // Get current clinic from localStorage
@@ -164,7 +191,10 @@ export default function InventoryPage() {
   const clinicId = clinicStr ? (() => { try { return JSON.parse(clinicStr).clinicId as string | undefined; } catch { return undefined; } })() : undefined;
 
   // Convert filter state to GraphQL input
-  const filterInput = filtersStateToInput(filters);
+  const filterInput = {
+    ...filtersStateToInput(filters),
+    ...(sortField && { sortBy: sortField, sortOrder }),
+  };
 
   const { data, loading, refetch } = useQuery<GetUnitsAdvancedResponse>(GET_UNITS_ADVANCED, {
     variables: { filters: filterInput, page, pageSize: 20 },
@@ -194,18 +224,125 @@ export default function InventoryPage() {
     },
   });
 
+  const [updateUnit, { loading: updatingUnit }] = useMutation(UPDATE_UNIT, {
+    onCompleted: () => {
+      toast({
+        title: 'Success',
+        description: 'Unit updated successfully',
+      });
+      setIsEditMode(false);
+      setEditedUnit(null);
+      refetch();
+      // Update the selected unit with new data
+      if (selectedUnit && editedUnit) {
+        setSelectedUnit({
+          ...selectedUnit,
+          totalQuantity: editedUnit.totalQuantity,
+          availableQuantity: editedUnit.availableQuantity,
+          expiryDate: new Date(editedUnit.expiryDate),
+          optionalNotes: editedUnit.optionalNotes,
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const totalPages = data ? Math.ceil(data.getUnitsAdvanced.total / data.getUnitsAdvanced.pageSize) : 0;
   const units = data?.getUnitsAdvanced.units || [];
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle sort order if same field
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      // New field, default to ASC
+      setSortField(field);
+      setSortOrder('ASC');
+    }
+    setPage(1); // Reset to first page when sorting changes
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-40" />;
+    }
+    return sortOrder === 'ASC' ? (
+      <ArrowUp className="ml-2 h-4 w-4" />
+    ) : (
+      <ArrowDown className="ml-2 h-4 w-4" />
+    );
+  };
 
   const handleRowClick = (unit: UnitDataWithLocation) => {
     setSelectedUnit(unit);
     setModalOpened(true);
+    setIsEditMode(false);
+    setEditedUnit(null);
     getTransactions({ variables: { unitId: unit.unitId, clinicId } });
   };
 
   const handleCloseModal = () => {
     setModalOpened(false);
     setSelectedUnit(null);
+    setIsEditMode(false);
+    setEditedUnit(null);
+  };
+
+  const handleStartEdit = () => {
+    if (!selectedUnit) return;
+    setIsEditMode(true);
+    setEditedUnit({
+      totalQuantity: selectedUnit.totalQuantity,
+      availableQuantity: selectedUnit.availableQuantity,
+      expiryDate: new Date(selectedUnit.expiryDate).toISOString().split('T')[0],
+      optionalNotes: selectedUnit.optionalNotes || '',
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setEditedUnit(null);
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedUnit || !editedUnit) return;
+
+    // Validation
+    if (editedUnit.totalQuantity < 0 || editedUnit.availableQuantity < 0) {
+      toast({
+        title: 'Error',
+        description: 'Quantities must be non-negative',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (editedUnit.availableQuantity > editedUnit.totalQuantity) {
+      toast({
+        title: 'Error',
+        description: 'Available quantity cannot exceed total quantity',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    updateUnit({
+      variables: {
+        input: {
+          unitId: selectedUnit.unitId,
+          totalQuantity: editedUnit.totalQuantity,
+          availableQuantity: editedUnit.availableQuantity,
+          expiryDate: editedUnit.expiryDate,
+          optionalNotes: editedUnit.optionalNotes,
+        },
+      },
+    });
   };
 
   const handleQuickCheckout = (unit: UnitDataWithLocation, e: React.MouseEvent) => {
@@ -324,10 +461,42 @@ export default function InventoryPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="font-semibold">Medication</TableHead>
-                      <TableHead className="font-semibold">Strength</TableHead>
-                      <TableHead className="font-semibold">Available</TableHead>
-                      <TableHead className="font-semibold">Expiry</TableHead>
+                      <TableHead 
+                        className="font-semibold cursor-pointer select-none hover:bg-accent/50 transition-colors"
+                        onClick={() => handleSort('MEDICATION_NAME')}
+                      >
+                        <div className="flex items-center">
+                          Medication
+                          {getSortIcon('MEDICATION_NAME')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="font-semibold cursor-pointer select-none hover:bg-accent/50 transition-colors"
+                        onClick={() => handleSort('STRENGTH')}
+                      >
+                        <div className="flex items-center">
+                          Strength
+                          {getSortIcon('STRENGTH')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="font-semibold cursor-pointer select-none hover:bg-accent/50 transition-colors"
+                        onClick={() => handleSort('QUANTITY')}
+                      >
+                        <div className="flex items-center">
+                          Available
+                          {getSortIcon('QUANTITY')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="font-semibold cursor-pointer select-none hover:bg-accent/50 transition-colors"
+                        onClick={() => handleSort('EXPIRY_DATE')}
+                      >
+                        <div className="flex items-center">
+                          Expiry
+                          {getSortIcon('EXPIRY_DATE')}
+                        </div>
+                      </TableHead>
                       <TableHead className="font-semibold">Location</TableHead>
                       <TableHead className="font-semibold">Source</TableHead>
                       <TableHead className="w-[60px] font-semibold">Actions</TableHead>
@@ -520,7 +689,48 @@ export default function InventoryPage() {
                 {/* Unit Information */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Medication Information</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Medication Information</CardTitle>
+                      {!isEditMode ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleStartEdit}
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCancelEdit}
+                            disabled={updatingUnit}
+                          >
+                            <XIcon className="mr-2 h-4 w-4" />
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleSaveEdit}
+                            disabled={updatingUnit}
+                          >
+                            {updatingUnit ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="mr-2 h-4 w-4" />
+                                Save
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
@@ -548,6 +758,54 @@ export default function InventoryPage() {
                       </div>
                       <div>
                         <p className="text-sm font-medium">Available / Total:</p>
+                        {isEditMode && editedUnit ? (
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              value={editedUnit.availableQuantity}
+                              onChange={(e) => setEditedUnit({
+                                ...editedUnit,
+                                availableQuantity: parseInt(e.target.value) || 0
+                              })}
+                              className="h-8 w-20"
+                            />
+                            <span className="text-sm text-muted-foreground self-center">/</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={editedUnit.totalQuantity}
+                              onChange={(e) => setEditedUnit({
+                                ...editedUnit,
+                                totalQuantity: parseInt(e.target.value) || 0
+                              })}
+                              className="h-8 w-20"
+                            />
+                          </div>
+                        ) : (
+                          <Badge variant={selectedUnit.availableQuantity > 0 ? 'default' : 'secondary'}>
+                            {selectedUnit.availableQuantity} / {selectedUnit.totalQuantity}
+                          </Badge>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Expiry Date:</p>
+                        {isEditMode && editedUnit ? (
+                          <Input
+                            type="date"
+                            value={editedUnit.expiryDate}
+                            onChange={(e) => setEditedUnit({
+                              ...editedUnit,
+                              expiryDate: e.target.value
+                            })}
+                            className="h-8"
+                          />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(selectedUnit.expiryDate).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
                         <Badge variant={selectedUnit.availableQuantity > 0 ? 'default' : 'secondary'}>
                           {selectedUnit.availableQuantity} / {selectedUnit.totalQuantity}
                         </Badge>
@@ -573,12 +831,24 @@ export default function InventoryPage() {
                         </>
                       )}
                     </div>
-                    {selectedUnit.optionalNotes && (
+                    {(selectedUnit.optionalNotes || isEditMode) && (
                       <>
                         <Separator className="my-4" />
                         <div>
                           <p className="text-sm font-medium mb-2">Notes:</p>
-                          <p className="text-sm text-muted-foreground">{selectedUnit.optionalNotes}</p>
+                          {isEditMode && editedUnit ? (
+                            <Input
+                              placeholder="Add optional notes..."
+                              value={editedUnit.optionalNotes}
+                              onChange={(e) => setEditedUnit({
+                                ...editedUnit,
+                                optionalNotes: e.target.value
+                              })}
+                              className="w-full"
+                            />
+                          ) : (
+                            <p className="text-sm text-muted-foreground">{selectedUnit.optionalNotes || 'No notes'}</p>
+                          )}
                         </div>
                       </>
                     )}

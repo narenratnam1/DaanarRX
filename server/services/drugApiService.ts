@@ -64,8 +64,11 @@ export interface RelatedMedication {
 }
 
 const OPENFDA_BASE_URL = 'https://api.fda.gov';
-const RXTERMS_BASE_URL = 'https://clinicaltables.nlm.nih.gov/api/rxterms/v3';
+// RxNav APIs
+// Docs: https://lhncbc.nlm.nih.gov/RxNav/APIs/RxTermsAPIs.html
 const RXNAV_BASE_URL = 'https://rxnav.nlm.nih.gov/REST';
+const RXTERMS_API_URL = `${RXNAV_BASE_URL}/RxTerms`;
+const RXNORM_API_URL = RXNAV_BASE_URL;
 
 class DrugApiService {
   private requestCache: Map<string, { data: any; timestamp: number }> = new Map();
@@ -104,6 +107,7 @@ class DrugApiService {
 
   /**
    * Search openFDA drug database
+   * Based on: https://open.fda.gov/apis/drug/ndc/how-to-use-the-endpoint/
    */
   private async searchOpenFDA(query: string, limit: number = 10): Promise<DrugSearchResult[]> {
     try {
@@ -112,27 +116,42 @@ class DrugApiService {
       if (cached) return cached;
 
       // Clean query for NDC search (numbers only)
-      const cleanedNDC = query.replace(/[^0-9]/g, '');
+      const cleanedNDC = query.replace(/[^0-9-]/g, '');
       
       let searchQuery = '';
       
       // If query looks like an NDC (10-11 digits), search by NDC
+      // NDC format: product_ndc field without openfda prefix
       if (cleanedNDC.length >= 10) {
-        searchQuery = `openfda.product_ndc:*${cleanedNDC}*`;
+        searchQuery = `product_ndc:${cleanedNDC}*`;
       } else {
-        // Otherwise search by name (brand or generic)
-        const encodedQuery = encodeURIComponent(query);
-        searchQuery = `(openfda.brand_name:"${encodedQuery}"+openfda.generic_name:"${encodedQuery}"+openfda.substance_name:"${encodedQuery}")`;
+        // Search by brand name or generic name
+        // Clean the query to avoid issues with special characters
+        const cleanQuery = query.replace(/[^\w\s]/g, '').trim();
+        if (!cleanQuery) {
+          console.warn('OpenFDA: Empty query after cleaning');
+          return [];
+        }
+        
+        // Use correct field names: brand_name and generic_name (not openfda.brand_name)
+        // Multiple terms with OR using space separation
+        // Ref: https://open.fda.gov/apis/query-parameters/
+        searchQuery = `brand_name:"${cleanQuery}" generic_name:"${cleanQuery}"`;
       }
+
+      console.log(`OpenFDA search query: ${searchQuery}`);
 
       const response = await axios.get(
         `${OPENFDA_BASE_URL}/drug/ndc.json`,
         {
           params: {
             search: searchQuery,
-            limit,
+            limit: Math.min(limit, 100), // Max 100 per API docs
           },
-          timeout: 5000,
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'DaanaRX/1.0',
+          },
         }
       );
 
@@ -141,14 +160,34 @@ class DrugApiService {
       return results;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error('OpenFDA API error:', error.response?.status, error.message);
+        // OpenFDA returns 404 when no results found - this is normal
+        if (error.response?.status === 404) {
+          console.log(`OpenFDA: No results found for query: ${query}`);
+          return [];
+        }
+        
+        // Log other errors
+        console.error('OpenFDA API error:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          message: error.message,
+          data: error.response?.data,
+        });
+      } else {
+        console.error('OpenFDA unexpected error:', error);
       }
       return [];
     }
   }
 
   /**
-   * Search RxTerms database (NLM)
+   * Search RxTerms via RxNorm API
+   * 
+   * RxTerms API doesn't have a search endpoint, so we:
+   * 1. Search RxNorm API to find drugs and get RxCUIs
+   * 2. Fetch RxTerms info for each RxCUI to get prescribable details
+   * 
+   * Docs: https://lhncbc.nlm.nih.gov/RxNav/APIs/RxTermsAPIs.html
    */
   private async searchRxTerms(query: string, limit: number = 10): Promise<DrugSearchResult[]> {
     try {
@@ -156,25 +195,99 @@ class DrugApiService {
       const cached = this.getFromCache(cacheKey);
       if (cached) return cached;
 
-      const response = await axios.get(
-        `${RXTERMS_BASE_URL}/search`,
+      // Step 1: Search RxNorm for drugs matching the query
+      // Endpoint: /drugs.json?name=<query>
+      const searchResponse = await axios.get(
+        `${RXNORM_API_URL}/drugs.json`,
         {
           params: {
-            terms: query,
-            maxList: limit,
+            name: query,
           },
           timeout: 5000,
         }
       );
 
-      const results = this.parseRxTermsResults(response.data);
+      const suggestions = searchResponse.data?.drugGroup?.conceptGroup || [];
+      
+      // Extract RxCUIs from search results
+      const rxcuis: string[] = [];
+      for (const group of suggestions) {
+        const concepts = group.conceptProperties || [];
+        for (const concept of concepts) {
+          if (concept.rxcui) {
+            rxcuis.push(concept.rxcui);
+          }
+        }
+      }
+
+      if (rxcuis.length === 0) {
+        console.log(`RxTerms: No RxCUIs found for query: ${query}`);
+        return [];
+      }
+
+      // Step 2: Fetch RxTerms info for each RxCUI (limit to first 5 for performance)
+      const rxcuisToFetch = rxcuis.slice(0, Math.min(5, limit));
+      const rxTermsPromises = rxcuisToFetch.map(rxcui => 
+        this.getRxTermsInfo(rxcui)
+      );
+
+      const rxTermsResults = await Promise.allSettled(rxTermsPromises);
+      
+      const results: DrugSearchResult[] = [];
+      for (const result of rxTermsResults) {
+        if (result.status === 'fulfilled' && result.value) {
+          results.push(result.value);
+        }
+      }
+
       this.saveToCache(cacheKey, results);
       return results;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error('RxTerms API error:', error.response?.status, error.message);
+        console.error('RxTerms API error:', {
+          status: error.response?.status,
+          message: error.message,
+          data: error.response?.data,
+        });
+      } else {
+        console.error('RxTerms unexpected error:', error);
       }
       return [];
+    }
+  }
+
+  /**
+   * Get RxTerms information for a specific RxCUI
+   * Endpoint: /RxTerms/rxcui/{rxcui}/allinfo.json
+   * 
+   * Returns prescribable drug information including:
+   * - brandName, displayName, genericName
+   * - strength, strengthUnit, doseForm, route
+   * - synonym (brand name)
+   */
+  private async getRxTermsInfo(rxcui: string): Promise<DrugSearchResult | null> {
+    try {
+      const response = await axios.get(
+        `${RXTERMS_API_URL}/rxcui/${rxcui}/allinfo.json`,
+        {
+          timeout: 5000,
+        }
+      );
+
+      const data = response.data?.rxtermsProperties;
+      if (!data) {
+        return null;
+      }
+
+      // Parse RxTerms structured data
+      return this.parseRxTermsInfo(data);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        // Not all RxNorm concepts have RxTerms data - this is normal
+        return null;
+      }
+      console.error(`RxTerms info error for RxCUI ${rxcui}:`, error);
+      return null;
     }
   }
 
@@ -189,14 +302,24 @@ class DrugApiService {
 
       const cleanedNDC = ndc.replace(/[^0-9]/g, '');
       
+      if (!cleanedNDC || cleanedNDC.length < 10) {
+        console.warn(`OpenFDA: Invalid NDC format: ${ndc}`);
+        return null;
+      }
+
+      console.log(`OpenFDA NDC lookup: ${cleanedNDC}`);
+      
       const response = await axios.get(
         `${OPENFDA_BASE_URL}/drug/ndc.json`,
         {
           params: {
-            search: `product_ndc:"${cleanedNDC}"`,
+            search: `product_ndc:${cleanedNDC}`,
             limit: 1,
           },
-          timeout: 5000,
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'DaanaRX/1.0',
+          },
         }
       );
 
@@ -208,7 +331,21 @@ class DrugApiService {
 
       return null;
     } catch (error) {
-      console.error('Error fetching drug by NDC:', error);
+      if (axios.isAxiosError(error)) {
+        // 404 means NDC not found in OpenFDA database
+        if (error.response?.status === 404) {
+          console.log(`OpenFDA: NDC not found: ${ndc}`);
+          return null;
+        }
+        
+        console.error('OpenFDA NDC lookup error:', {
+          status: error.response?.status,
+          message: error.message,
+          ndc: ndc,
+        });
+      } else {
+        console.error('OpenFDA unexpected error:', error);
+      }
       return null;
     }
   }
@@ -377,9 +514,37 @@ class DrugApiService {
   /**
    * Parse openFDA API results
    */
+  /**
+   * Parse openFDA API results
+   * 
+   * OpenFDA NDC response structure:
+   * {
+   *   "results": [{
+   *     "product_ndc": "0573-0164",
+   *     "brand_name": "Advil",
+   *     "generic_name": "Ibuprofen",
+   *     "dosage_form": "TABLET",
+   *     "route": ["ORAL"],
+   *     "openfda": {
+   *       "brand_name": ["Advil"],
+   *       "generic_name": ["IBUPROFEN"],
+   *       "manufacturer_name": ["Pfizer"],
+   *       "product_ndc": ["0573-0164-70"],
+   *       "dosage_form": ["TABLET"],
+   *       "route": ["ORAL"],
+   *       "substance_name": ["IBUPROFEN"],
+   *       "strength": ["200 mg/1"]
+   *     }
+   *   }]
+   * }
+   * 
+   * Fields can be at root level OR in openfda object (or both)
+   */
   private parseOpenFDAResults(results: any[]): DrugSearchResult[] {
     return results.map(result => {
       const openfda = result.openfda || {};
+      
+      // Try openfda object first (more detailed), then root level
       const brandName = openfda.brand_name?.[0] || result.brand_name || '';
       const genericName = openfda.generic_name?.[0] || result.generic_name || openfda.substance_name?.[0] || '';
       const ndc = result.product_ndc || openfda.product_ndc?.[0] || '';
@@ -405,121 +570,78 @@ class DrugApiService {
   /**
    * Parse RxTerms API results
    */
-  private parseRxTermsResults(data: any): DrugSearchResult[] {
-    // RxTerms returns: [totalCount, [codes], [display strings], [synonym arrays]]
-    if (!data || !Array.isArray(data) || data.length < 3) return [];
-
-    const displayStrings = data[1] || [];
-    // Note: data[2] contains synonymArrays - reserved for future NDC extraction
-
-    return displayStrings.map((display: string) => {
-      // RxTerms format: "MEDICATION (strength) [form]"
-      // Example: "Ibuprofen 200 MG Oral Tablet [Advil]"
-      const parts = display.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*(\w+)\s+(.+?)(?:\s+\[(.+?)\])?$/);
-      
-      let medicationName = display;
-      let genericName = display;
-      let strength = 0;
-      let strengthUnit = 'mg';
-      let form = 'Tablet';
-
-      if (parts) {
-        genericName = parts[1].trim();
-        strength = parseFloat(parts[2]);
-        strengthUnit = parts[3].toLowerCase();
-        form = this.normalizeForm(parts[4]);
-        medicationName = parts[5] || genericName;
-      } else {
-        // If regex doesn't match, try to extract info from display string manually
-        const manualParsed = this.manualParseRxTermsString(display);
-        if (manualParsed) {
-          genericName = manualParsed.genericName;
-          medicationName = manualParsed.medicationName;
-          strength = manualParsed.strength;
-          strengthUnit = manualParsed.strengthUnit;
-          form = manualParsed.form;
-        }
-      }
-
-      // VALIDATION: Sanity check the parsed data
-      const validated = this.validateRxTermsData({
-        medicationName,
-        genericName,
-        strength,
-        strengthUnit,
-        form,
-        originalDisplay: display,
-      });
-
-      // Use validated data
-      medicationName = validated.medicationName;
-      genericName = validated.genericName;
-      strength = validated.strength;
-      strengthUnit = validated.strengthUnit;
-      form = validated.form;
-
-      // Generate placeholder NDC
-      const nameHash = this.simpleHash(genericName);
-      const ndcId = `RXTERM-${nameHash}-${strength}${strengthUnit}`.substring(0, 20);
-      
-      return {
-        source: 'rxterms',
-        medicationName,
-        genericName,
-        strength,
-        strengthUnit,
-        ndcId,
-        form,
-        confidence: validated.confidence, // Adjusted based on validation
-      };
-    });
-  }
-
   /**
-   * Manually parse RxTerms string when regex fails
+   * Parse RxTerms API structured response
+   * 
+   * RxTerms response structure from /rxcui/{rxcui}/allinfo.json:
+   * {
+   *   "rxtermsProperties": {
+   *     "rxcui": "198440",
+   *     "displayName": "Ibuprofen 200 MG Oral Tablet [Advil]",
+   *     "synonym": "Advil",                    // Brand name
+   *     "fullName": "Ibuprofen 200 MG Oral Tablet",
+   *     "fullGenericName": "Ibuprofen",
+   *     "brandName": "Advil",
+   *     "strength": "200",
+   *     "strengthUnit": "MG",
+   *     "doseForm": "Oral Tablet",
+   *     "route": "Oral",
+   *     "termType": "SBD"                      // Branded drug
+   *   }
+   * }
    */
-  private manualParseRxTermsString(display: string): {
-    medicationName: string;
-    genericName: string;
-    strength: number;
-    strengthUnit: string;
-    form: string;
-  } | null {
-    // Try to extract form from parentheses or common patterns
-    const formPatterns = [
-      /\(Injectable\)/i,
-      /\(Oral\)/i,
-      /\(Topical\)/i,
-      /Injectable/i,
-      /Oral/i,
-      /Topical/i,
-    ];
+  private parseRxTermsInfo(data: any): DrugSearchResult | null {
+    if (!data) return null;
 
-    let form = 'Tablet'; // Default
-    for (const pattern of formPatterns) {
-      const match = display.match(pattern);
-      if (match) {
-        form = this.inferFormFromDescription(match[0]);
-        break;
+    const brandName = data.brandName || data.synonym || '';
+    const genericName = data.fullGenericName || data.genericName || '';
+    const displayName = data.displayName || '';
+    
+    // Parse strength
+    let strength = 0;
+    let strengthUnit = 'mg';
+    
+    if (data.strength) {
+      const strengthValue = parseFloat(data.strength);
+      if (!isNaN(strengthValue)) {
+        strength = strengthValue;
       }
     }
-
-    // Extract medication name (usually at the start)
-    const nameMatch = display.match(/^([A-Z][a-zA-Z\s]+?)(?:\s+\(|$)/);
-    const medicationName = nameMatch ? nameMatch[1].trim() : display;
-    const genericName = medicationName;
-
-    // Try to find strength anywhere in the string
-    const strengthMatch = display.match(/(\d+(?:\.\d+)?)\s*(mg|mcg|g|ml|unit)/i);
-    const strength = strengthMatch ? parseFloat(strengthMatch[1]) : 0;
-    const strengthUnit = strengthMatch ? strengthMatch[2].toLowerCase() : 'mg';
-
-    return {
+    
+    if (data.strengthUnit) {
+      strengthUnit = data.strengthUnit.toLowerCase();
+    }
+    
+    // Parse dose form
+    const form = this.normalizeForm(data.doseForm || data.route || 'Tablet');
+    
+    // Decide on medication name (brand if available, else generic)
+    const medicationName = brandName || genericName || displayName;
+    
+    // Validate the parsed data
+    const validated = this.validateRxTermsData({
       medicationName,
-      genericName,
+      genericName: genericName || medicationName,
       strength,
       strengthUnit,
       form,
+      originalDisplay: displayName,
+    });
+    
+    // Generate placeholder NDC
+    const nameHash = this.simpleHash(validated.genericName);
+    const ndcId = `RXTERM-${nameHash}-${validated.strength}${validated.strengthUnit}`.substring(0, 20);
+    
+    return {
+      source: 'rxterms',
+      medicationName: validated.medicationName,
+      genericName: validated.genericName,
+      strength: validated.strength,
+      strengthUnit: validated.strengthUnit,
+      ndcId,
+      form: validated.form,
+      confidence: validated.confidence,
+      routes: data.route ? [data.route] : undefined,
     };
   }
 
@@ -649,31 +771,6 @@ class DrugApiService {
     }
 
     return null;
-  }
-
-  /**
-   * Infer form from description text
-   */
-  private inferFormFromDescription(description: string): string {
-    const lower = description.toLowerCase();
-
-    if (lower.includes('injectable') || lower.includes('injection')) {
-      return 'Injection';
-    }
-    if (lower.includes('oral') && lower.includes('tablet')) {
-      return 'Tablet';
-    }
-    if (lower.includes('oral') && lower.includes('capsule')) {
-      return 'Capsule';
-    }
-    if (lower.includes('oral') && (lower.includes('liquid') || lower.includes('solution'))) {
-      return 'Liquid';
-    }
-    if (lower.includes('topical')) {
-      return 'Cream';
-    }
-
-    return 'Tablet'; // Safe default
   }
 
   /**
