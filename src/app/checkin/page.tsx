@@ -367,7 +367,7 @@ export default function CheckInPage() {
   });
 
   const [createUnit, { loading: creatingUnit }] = useMutation(CREATE_UNIT, {
-    refetchQueries: ['GetDashboardStats', 'GetUnits'],
+    refetchQueries: ['GetDashboardStats', 'GetUnits', 'GetUnitsAdvanced'],
     onCompleted: (data) => {
       setCreatedUnitId(data.createUnit.unitId);
       toast({
@@ -431,6 +431,17 @@ export default function CheckInPage() {
     const qty = parseInt(totalQuantity, 10);
     const availQty = parseInt(availableQuantity, 10);
 
+    // Prepare drug data for GraphQL (exclude display-only fields)
+    const cleanDrugData = !selectedDrug?.drugId ? {
+      medicationName: drugData.medicationName,
+      genericName: drugData.genericName,
+      strength: drugData.strength,
+      strengthUnit: drugData.strengthUnit,
+      ndcId: drugData.ndcId,
+      form: drugData.form,
+      // Exclude: drugId, inInventory (these are not part of DrugInput schema)
+    } : undefined;
+
     createUnit({
       variables: {
         input: {
@@ -439,7 +450,7 @@ export default function CheckInPage() {
           lotId: selectedLotId,
           expiryDate: expiryDate.toISOString().split('T')[0],
           drugId: selectedDrug?.drugId,
-          drugData: !selectedDrug?.drugId ? drugData : undefined,
+          drugData: cleanDrugData,
           manufacturerLotNumber: manufacturerLotNumber || undefined,
           optionalNotes: unitNotes,
         },

@@ -429,19 +429,38 @@ class DrugApiService {
         strengthUnit = parts[3].toLowerCase();
         form = this.normalizeForm(parts[4]);
         medicationName = parts[5] || genericName;
+      } else {
+        // If regex doesn't match, try to extract info from display string manually
+        const manualParsed = this.manualParseRxTermsString(display);
+        if (manualParsed) {
+          genericName = manualParsed.genericName;
+          medicationName = manualParsed.medicationName;
+          strength = manualParsed.strength;
+          strengthUnit = manualParsed.strengthUnit;
+          form = manualParsed.form;
+        }
       }
 
-      // Try to extract NDC from synonyms if available (future enhancement)
-      // const synonyms = synonymArrays[index] || [];
-      let ndcId = '';
-      
-      // RxTerms doesn't provide NDC, so generate a placeholder
-      // Format: RXTERM-{medicationName hash}-{strength}
-      // This allows the drug to be created while making it clear it's from RxTerms
-      if (!ndcId) {
-        const nameHash = this.simpleHash(genericName);
-        ndcId = `RXTERM-${nameHash}-${strength}${strengthUnit}`.substring(0, 20);
-      }
+      // VALIDATION: Sanity check the parsed data
+      const validated = this.validateRxTermsData({
+        medicationName,
+        genericName,
+        strength,
+        strengthUnit,
+        form,
+        originalDisplay: display,
+      });
+
+      // Use validated data
+      medicationName = validated.medicationName;
+      genericName = validated.genericName;
+      strength = validated.strength;
+      strengthUnit = validated.strengthUnit;
+      form = validated.form;
+
+      // Generate placeholder NDC
+      const nameHash = this.simpleHash(genericName);
+      const ndcId = `RXTERM-${nameHash}-${strength}${strengthUnit}`.substring(0, 20);
       
       return {
         source: 'rxterms',
@@ -451,9 +470,210 @@ class DrugApiService {
         strengthUnit,
         ndcId,
         form,
-        confidence: 85, // RxTerms is very good for prescription drugs
+        confidence: validated.confidence, // Adjusted based on validation
       };
     });
+  }
+
+  /**
+   * Manually parse RxTerms string when regex fails
+   */
+  private manualParseRxTermsString(display: string): {
+    medicationName: string;
+    genericName: string;
+    strength: number;
+    strengthUnit: string;
+    form: string;
+  } | null {
+    // Try to extract form from parentheses or common patterns
+    const formPatterns = [
+      /\(Injectable\)/i,
+      /\(Oral\)/i,
+      /\(Topical\)/i,
+      /Injectable/i,
+      /Oral/i,
+      /Topical/i,
+    ];
+
+    let form = 'Tablet'; // Default
+    for (const pattern of formPatterns) {
+      const match = display.match(pattern);
+      if (match) {
+        form = this.inferFormFromDescription(match[0]);
+        break;
+      }
+    }
+
+    // Extract medication name (usually at the start)
+    const nameMatch = display.match(/^([A-Z][a-zA-Z\s]+?)(?:\s+\(|$)/);
+    const medicationName = nameMatch ? nameMatch[1].trim() : display;
+    const genericName = medicationName;
+
+    // Try to find strength anywhere in the string
+    const strengthMatch = display.match(/(\d+(?:\.\d+)?)\s*(mg|mcg|g|ml|unit)/i);
+    const strength = strengthMatch ? parseFloat(strengthMatch[1]) : 0;
+    const strengthUnit = strengthMatch ? strengthMatch[2].toLowerCase() : 'mg';
+
+    return {
+      medicationName,
+      genericName,
+      strength,
+      strengthUnit,
+      form,
+    };
+  }
+
+  /**
+   * Validate and correct RxTerms parsed data
+   */
+  private validateRxTermsData(data: {
+    medicationName: string;
+    genericName: string;
+    strength: number;
+    strengthUnit: string;
+    form: string;
+    originalDisplay: string;
+  }): {
+    medicationName: string;
+    genericName: string;
+    strength: number;
+    strengthUnit: string;
+    form: string;
+    confidence: number;
+  } {
+    let { medicationName, genericName, strength, strengthUnit, form } = data;
+    let confidence = 85; // Start with default RxTerms confidence
+
+    // VALIDATION 1: Check if form matches name descriptors
+    const formInName = this.extractFormFromName(data.originalDisplay);
+    if (formInName && formInName !== form) {
+      console.warn(
+        `RxTerms form mismatch: Name suggests "${formInName}" but parsed as "${form}". Using name-based form.`
+      );
+      form = formInName;
+      confidence -= 10; // Reduce confidence due to mismatch
+    }
+
+    // VALIDATION 2: Check for zero or missing strength
+    if (strength === 0 || isNaN(strength)) {
+      console.warn(
+        `RxTerms: No strength found for "${medicationName}". This may be incorrect.`
+      );
+      confidence -= 20; // Significant confidence reduction
+      
+      // Try to extract from original display
+      const strengthMatch = data.originalDisplay.match(/(\d+(?:\.\d+)?)\s*(mg|mcg|g|ml|unit)/i);
+      if (strengthMatch) {
+        strength = parseFloat(strengthMatch[1]);
+        strengthUnit = strengthMatch[2].toLowerCase();
+        console.log(`RxTerms: Recovered strength ${strength}${strengthUnit} from display string`);
+        confidence += 10; // Recover some confidence
+      }
+    }
+
+    // VALIDATION 3: Check for unreasonable strengths
+    if (strength > 10000 && strengthUnit === 'mg') {
+      console.warn(
+        `RxTerms: Unusually high strength (${strength}${strengthUnit}) for "${medicationName}". May be data error.`
+      );
+      confidence -= 15;
+    }
+
+    // VALIDATION 4: Check if strength unit makes sense for form
+    if (form === 'Injection' && strengthUnit === 'mg' && strength < 1) {
+      console.warn(
+        `RxTerms: Injection with very low mg dose (${strength}${strengthUnit}). May need unit conversion.`
+      );
+      confidence -= 10;
+    }
+
+    // VALIDATION 5: Clean up medication name
+    // Remove form descriptors from name if they're redundant
+    medicationName = medicationName
+      .replace(/\s*\(Injectable\)\s*/gi, '')
+      .replace(/\s*\(Oral\)\s*/gi, '')
+      .replace(/\s*\(Topical\)\s*/gi, '')
+      .trim();
+    
+    genericName = genericName
+      .replace(/\s*\(Injectable\)\s*/gi, '')
+      .replace(/\s*\(Oral\)\s*/gi, '')
+      .replace(/\s*\(Topical\)\s*/gi, '')
+      .trim();
+
+    // VALIDATION 6: Ensure names aren't empty
+    if (!medicationName || medicationName.length < 2) {
+      medicationName = data.originalDisplay.split(/\s+/)[0] || 'Unknown Medication';
+      confidence -= 30;
+    }
+
+    if (!genericName || genericName.length < 2) {
+      genericName = medicationName;
+    }
+
+    return {
+      medicationName,
+      genericName,
+      strength,
+      strengthUnit,
+      form,
+      confidence: Math.max(confidence, 40), // Never go below 40
+    };
+  }
+
+  /**
+   * Extract form from medication name/description
+   */
+  private extractFormFromName(name: string): string | null {
+    const lowerName = name.toLowerCase();
+
+    // Check for explicit form indicators in name
+    const formIndicators = [
+      { patterns: ['injectable', 'injection', 'inject'], form: 'Injection' },
+      { patterns: ['oral tablet', 'oral tab'], form: 'Tablet' },
+      { patterns: ['oral capsule', 'oral cap'], form: 'Capsule' },
+      { patterns: ['oral solution', 'oral liquid', 'syrup'], form: 'Liquid' },
+      { patterns: ['topical cream', 'cream'], form: 'Cream' },
+      { patterns: ['topical ointment', 'ointment'], form: 'Ointment' },
+      { patterns: ['patch', 'transdermal'], form: 'Patch' },
+      { patterns: ['inhaler', 'inhalation'], form: 'Inhaler' },
+      { patterns: ['suppository'], form: 'Suppository' },
+    ];
+
+    for (const indicator of formIndicators) {
+      for (const pattern of indicator.patterns) {
+        if (lowerName.includes(pattern)) {
+          return indicator.form;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Infer form from description text
+   */
+  private inferFormFromDescription(description: string): string {
+    const lower = description.toLowerCase();
+
+    if (lower.includes('injectable') || lower.includes('injection')) {
+      return 'Injection';
+    }
+    if (lower.includes('oral') && lower.includes('tablet')) {
+      return 'Tablet';
+    }
+    if (lower.includes('oral') && lower.includes('capsule')) {
+      return 'Capsule';
+    }
+    if (lower.includes('oral') && (lower.includes('liquid') || lower.includes('solution'))) {
+      return 'Liquid';
+    }
+    if (lower.includes('topical')) {
+      return 'Cream';
+    }
+
+    return 'Tablet'; // Safe default
   }
 
   /**
