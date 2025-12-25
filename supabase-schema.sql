@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   type VARCHAR(50) NOT NULL CHECK (type IN ('adjust', 'check_out', 'check_in')),
   quantity INTEGER NOT NULL,
   unit_id UUID NOT NULL REFERENCES units(unit_id) ON DELETE RESTRICT,
+  patient_name VARCHAR(255),
   patient_reference_id VARCHAR(255),
   user_id UUID NOT NULL REFERENCES users(user_id),
   notes TEXT,
