@@ -478,16 +478,17 @@ function CheckOutContent() {
                   <CardTitle className="text-xl">Search Results ({searchData.searchUnitsByQuery.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto -mx-1">
-                    <Table>
+                  <div className="overflow-x-auto -mx-6 sm:-mx-6">
+                    <div className="inline-block min-w-full align-middle">
+                      <Table className="min-w-full">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="font-semibold">Medication</TableHead>
-                          <TableHead className="font-semibold">Strength</TableHead>
-                          <TableHead className="font-semibold">Available</TableHead>
-                          <TableHead className="font-semibold">Expiry</TableHead>
-                          <TableHead className="font-semibold">Location</TableHead>
-                          <TableHead className="font-semibold">Source</TableHead>
+                          <TableHead className="font-semibold min-w-[150px]">Medication</TableHead>
+                          <TableHead className="font-semibold min-w-[100px]">Strength</TableHead>
+                          <TableHead className="font-semibold min-w-[90px]">Available</TableHead>
+                          <TableHead className="font-semibold hidden md:table-cell min-w-[100px]">Expiry</TableHead>
+                          <TableHead className="font-semibold hidden lg:table-cell min-w-[100px]">Location</TableHead>
+                          <TableHead className="font-semibold hidden lg:table-cell min-w-[100px]">Source</TableHead>
                           <TableHead className="w-[60px] font-semibold">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -503,41 +504,43 @@ function CheckOutContent() {
                               className="cursor-pointer hover:bg-accent/50 transition-colors"
                             >
                               <TableCell>
-                                <div className="space-y-1">
-                                  <div className="font-semibold">{unit.drug.medicationName}</div>
-                                  <div className="text-sm text-muted-foreground">{unit.drug.genericName}</div>
+                                <div className="space-y-1 min-w-0">
+                                  <div className="font-semibold text-sm break-words">{unit.drug.medicationName}</div>
+                                  <div className="text-xs text-muted-foreground break-words">{unit.drug.genericName}</div>
                                 </div>
                               </TableCell>
-                              <TableCell className="font-medium">
+                              <TableCell className="font-medium text-sm whitespace-nowrap">
                                 {unit.drug.strength} {unit.drug.strengthUnit}
                               </TableCell>
                               <TableCell>
-                                <Badge variant={unit.availableQuantity > 0 ? 'default' : 'secondary'} className="px-3 py-1">
+                                <Badge variant={unit.availableQuantity > 0 ? 'default' : 'secondary'} className="px-2 py-1 text-xs whitespace-nowrap">
                                   {unit.availableQuantity} / {unit.totalQuantity}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="hidden md:table-cell">
                                 <Badge
                                   variant={isExpired ? 'destructive' : isExpiringSoon ? 'outline' : 'secondary'}
                                   className={cn(
-                                    'px-3 py-1',
+                                    'px-2 py-1 text-xs whitespace-nowrap',
                                     !isExpired && isExpiringSoon && 'border-warning/50 text-warning bg-warning/5'
                                   )}
                                 >
                                   {new Date(unit.expiryDate).toLocaleDateString()}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="hidden lg:table-cell">
                                 {unit.lot?.location ? (
-                                  <Badge variant="outline" className="px-3 py-1">
+                                  <Badge variant="outline" className="px-2 py-1 text-xs">
                                     {unit.lot.location.name}
                                   </Badge>
                                 ) : (
                                   <span className="text-muted-foreground">-</span>
                                 )}
                               </TableCell>
-                              <TableCell>
-                                <span className="text-sm font-medium">{unit.lot?.source || '-'}</span>
+                              <TableCell className="hidden lg:table-cell">
+                                <span className="text-sm font-medium truncate block max-w-[150px]" title={unit.lot?.source || '-'}>
+                                  {unit.lot?.source || '-'}
+                                </span>
                               </TableCell>
                               <TableCell>
                                 <DropdownMenu>
@@ -589,6 +592,7 @@ function CheckOutContent() {
                         })}
                       </TableBody>
                     </Table>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

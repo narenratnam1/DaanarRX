@@ -200,31 +200,33 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             {data?.getLocations && data.getLocations.length > 0 ? (
-              <div className="overflow-x-auto -mx-1">
-                <Table>
+              <div className="overflow-x-auto -mx-6 sm:-mx-6">
+                <div className="inline-block min-w-full align-middle">
+                  <Table className="min-w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="font-semibold">Name</TableHead>
-                      <TableHead className="font-semibold">Temperature</TableHead>
-                      <TableHead className="font-semibold">Created</TableHead>
-                      <TableHead className="font-semibold">Actions</TableHead>
+                      <TableHead className="font-semibold min-w-[120px]">Name</TableHead>
+                      <TableHead className="font-semibold min-w-[100px]">Temperature</TableHead>
+                      <TableHead className="font-semibold hidden sm:table-cell min-w-[100px]">Created</TableHead>
+                      <TableHead className="font-semibold min-w-[140px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data?.getLocations.map((location: LocationData) => (
                       <TableRow key={location.locationId} className="hover:bg-accent/50">
-                        <TableCell className="font-semibold">{location.name}</TableCell>
-                        <TableCell className="capitalize font-medium">{location.temp.replace('_', ' ')}</TableCell>
-                        <TableCell className="text-sm">{new Date(location.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="font-semibold break-words">{location.name}</TableCell>
+                        <TableCell className="capitalize font-medium text-sm">{location.temp.replace('_', ' ')}</TableCell>
+                        <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{new Date(location.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell>
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <Button size="sm" variant="outline" onClick={() => handleEdit(location)}>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleEdit(location)} className="w-full sm:w-auto">
                               Edit
                             </Button>
                             <Button
                               size="sm"
                               variant="destructive"
                               onClick={() => handleDelete(location.locationId)}
+                              className="w-full sm:w-auto"
                             >
                               Delete
                             </Button>
@@ -234,6 +236,7 @@ export default function AdminPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </div>
             ) : (
               <p className="text-base text-muted-foreground text-center py-8">No locations created yet</p>

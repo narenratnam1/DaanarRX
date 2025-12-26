@@ -5,7 +5,7 @@ import { useQuery, useMutation, gql } from '@apollo/client';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { useReactToPrint } from 'react-to-print';
-import { QrCodeIcon, Printer, AlertCircle, Loader2 } from 'lucide-react';
+import { QrCodeIcon, Printer, AlertCircle, Loader2, Edit } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
 import { LotCapacityAlert } from '../../components/LotCapacityAlert';
@@ -19,7 +19,7 @@ import {
 } from '../../types/graphql';
 import { RootState } from '../../store';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,7 +31,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Stepper, Step } from '@/components/ui/stepper';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useToast } from '@/hooks/use-toast';
@@ -142,7 +141,6 @@ export default function CheckInPage() {
   const [manufacturerLotNumber, setManufacturerLotNumber] = useState('');
   const [unitNotes, setUnitNotes] = useState('');
   const [createdUnitId, setCreatedUnitId] = useState<string>('');
-  const [showQRModal, setShowQRModal] = useState(false);
   
   // Scanner state
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
@@ -262,7 +260,7 @@ export default function CheckInPage() {
       let externalResults: any[] = [];
       try {
         const externalResponse = await fetch(
-          `/api/drugs/search?q=${encodeURIComponent(searchTerm)}&limit=5`
+          `/api/drugs/search?q=${encodeURIComponent(searchTerm)}&limit=10`
         );
         if (externalResponse.ok) {
           const externalData = await externalResponse.json();
@@ -277,12 +275,108 @@ export default function CheckInPage() {
         // Continue with local results only
       }
 
-      // Combine results: local first (they're already in inventory), then external
+      // Combine and fuzzy search all results
       const combinedResults = [...localResults, ...externalResults];
 
       if (combinedResults.length > 0) {
-        setSearchResults(combinedResults);
-        setShowDropdown(true);
+        // Fuzzy search scoring function
+        const fuzzyScore = (text: string, query: string): number => {
+          if (!text || !query) return 0;
+          
+          const textLower = text.toLowerCase();
+          const queryLower = query.toLowerCase();
+          
+          // Exact match gets highest score
+          if (textLower === queryLower) return 1000;
+          
+          // Starts with query gets high score
+          if (textLower.startsWith(queryLower)) return 500;
+          
+          // Contains query gets medium score
+          if (textLower.includes(queryLower)) return 250;
+          
+          // Fuzzy character matching
+          let score = 0;
+          let queryIndex = 0;
+          
+          for (let i = 0; i < textLower.length && queryIndex < queryLower.length; i++) {
+            if (textLower[i] === queryLower[queryIndex]) {
+              score += 10;
+              queryIndex++;
+            }
+          }
+          
+          // Bonus if all characters matched in order
+          if (queryIndex === queryLower.length) {
+            score += 50;
+          }
+          
+          return score;
+        };
+
+        // Score each result
+        const scoredResults = combinedResults.map((drug: any) => {
+          let totalScore = 0;
+          
+          // Score medication name (highest weight)
+          totalScore += fuzzyScore(drug.medicationName || '', searchTerm) * 3;
+          
+          // Score generic name
+          totalScore += fuzzyScore(drug.genericName || '', searchTerm) * 2;
+          
+          // Score NDC ID
+          totalScore += fuzzyScore(drug.ndcId || '', searchTerm) * 2;
+          
+          // Score form
+          totalScore += fuzzyScore(drug.form || '', searchTerm) * 0.5;
+          
+          // Score strength as string
+          totalScore += fuzzyScore(String(drug.strength || ''), searchTerm) * 1.5;
+          
+          // Boost score slightly for items already in inventory
+          if (drug.inInventory) {
+            totalScore *= 1.1;
+          }
+          
+          return {
+            ...drug,
+            _searchScore: totalScore,
+          };
+        });
+
+        // Sort by score (highest first) and filter out zero scores
+        const sortedResults = scoredResults
+          .filter((drug: any) => drug._searchScore > 0)
+          .sort((a: any, b: any) => b._searchScore - a._searchScore)
+          .slice(0, 20); // Limit to top 20 results
+
+        setSearchResults(sortedResults);
+        setShowDropdown(sortedResults.length > 0);
+
+        if (sortedResults.length === 0) {
+          // If no fuzzy matches and looks like NDC, try direct NDC lookup
+          const cleanedNDC = searchTerm.replace(/[^0-9]/g, '');
+          if (cleanedNDC.length >= 10) {
+            try {
+              const ndcResponse = await fetch(
+                `/api/drugs/ndc?code=${encodeURIComponent(cleanedNDC)}`
+              );
+              if (ndcResponse.ok) {
+                const ndcData = await ndcResponse.json();
+                if (ndcData.result) {
+                  setSearchResults([{ ...ndcData.result, isExternal: true, inInventory: false }]);
+                  setShowDropdown(true);
+                  return;
+                }
+              }
+            } catch (ndcError) {
+              console.error('NDC lookup error:', ndcError);
+            }
+            // Prepopulate manual entry with NDC
+            setManualDrug({ ...manualDrug, ndcId: cleanedNDC });
+            setShowManualEntry(true);
+          }
+        }
       } else {
         setSearchResults([]);
         setShowDropdown(false);
@@ -374,7 +468,7 @@ export default function CheckInPage() {
         title: 'Success',
         description: `Unit created successfully! Transaction logged.`,
       });
-      setShowQRModal(true);
+      setActiveStep(3); // Move to confirmation screen
     },
     onError: (error) => {
       toast({
@@ -484,7 +578,6 @@ export default function CheckInPage() {
     setManufacturerLotNumber('');
     setUnitNotes('');
     setCreatedUnitId('');
-    setShowQRModal(false);
   };
 
   return (
@@ -771,6 +864,7 @@ export default function CheckInPage() {
                           {selectedDrug.inInventory && (
                             <Badge className="bg-primary/10 text-primary border-primary/20">Already in Inventory</Badge>
                           )}
+                          {/* Show edit button for drugs with auto-generated NDC */}
                           {selectedDrug.ndcId && selectedDrug.ndcId.startsWith('RXTERM-') && (
                             <Button
                               variant="outline"
@@ -790,6 +884,30 @@ export default function CheckInPage() {
                               }}
                               className="text-xs"
                             >
+                              Edit Details
+                            </Button>
+                          )}
+                          {/* Show edit button for external FDA/NLM drugs */}
+                          {!selectedDrug.inInventory && !selectedDrug.drugId && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Pre-fill manual entry with selected drug data
+                                setManualDrug({
+                                  medicationName: selectedDrug.medicationName,
+                                  genericName: selectedDrug.genericName,
+                                  strength: selectedDrug.strength,
+                                  strengthUnit: selectedDrug.strengthUnit,
+                                  ndcId: selectedDrug.ndcId || '',
+                                  form: selectedDrug.form,
+                                });
+                                setSelectedDrug(null);
+                                setShowManualEntry(true);
+                              }}
+                              className="text-xs"
+                            >
+                              <Edit className="h-3 w-3 mr-1" />
                               Edit Details
                             </Button>
                           )}
@@ -1000,60 +1118,60 @@ export default function CheckInPage() {
               </CardContent>
             </Card>
           </Step>
-        </Stepper>
 
-        {/* Success Modal with QR Code */}
-        <Dialog open={showQRModal} onOpenChange={setShowQRModal}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-2xl">Unit Created Successfully</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-5">
-              <Alert className="border-success/50 bg-success/5">
-                <AlertDescription className="text-base">
-                  Unit has been added to inventory. Print the label below and attach it to the medication.
-                </AlertDescription>
-              </Alert>
-              
-              {/* Printable Label */}
-              <div className="flex justify-center">
-                <div ref={printRef}>
-                  <UnitLabel
-                    unitId={createdUnitId}
-                    medicationName={selectedDrug?.medicationName || manualDrug.medicationName}
-                    genericName={selectedDrug?.genericName || manualDrug.genericName}
-                    strength={selectedDrug?.strength || manualDrug.strength}
-                    strengthUnit={selectedDrug?.strengthUnit || manualDrug.strengthUnit}
-                    form={selectedDrug?.form || manualDrug.form}
-                    ndcId={selectedDrug?.ndcId || manualDrug.ndcId}
-                    manufacturerLotNumber={manufacturerLotNumber || null}
-                    availableQuantity={availableQuantity || totalQuantity}
-                    totalQuantity={totalQuantity}
-                    expiryDate={expiryDate}
-                    donationSource={selectedLot?.source || lotSource || null}
-                    locationName={
-                      (() => {
-                        const locId = selectedLot?.locationId || selectedLocationId;
-                        const loc = locationsData?.getLocations?.find((l: LocationData) => l.locationId === locId);
-                        return loc?.name || null;
-                      })()
-                    }
-                  />
+          {/* Step 4: Confirmation */}
+          <Step label="Confirmation" description="Print label">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl text-center">✅ Unit Created Successfully!</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <Alert className="border-success/50 bg-success/5">
+                  <AlertDescription className="text-base text-center">
+                    Unit has been added to inventory. Print the label below and attach it to the medication.
+                  </AlertDescription>
+                </Alert>
+                
+                {/* Printable Label */}
+                <div className="flex justify-center">
+                  <div ref={printRef}>
+                    <UnitLabel
+                      unitId={createdUnitId}
+                      medicationName={selectedDrug?.medicationName || manualDrug.medicationName}
+                      genericName={selectedDrug?.genericName || manualDrug.genericName}
+                      strength={selectedDrug?.strength || manualDrug.strength}
+                      strengthUnit={selectedDrug?.strengthUnit || manualDrug.strengthUnit}
+                      form={selectedDrug?.form || manualDrug.form}
+                      ndcId={selectedDrug?.ndcId || manualDrug.ndcId}
+                      manufacturerLotNumber={manufacturerLotNumber || null}
+                      availableQuantity={availableQuantity || totalQuantity}
+                      totalQuantity={totalQuantity}
+                      expiryDate={expiryDate}
+                      donationSource={selectedLot?.source || lotSource || null}
+                      locationName={
+                        (() => {
+                          const locId = selectedLot?.locationId || selectedLocationId;
+                          const loc = locationsData?.getLocations?.find((l: LocationData) => l.locationId === locId);
+                          return loc?.name || null;
+                        })()
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <Button onClick={() => handlePrint()} size="lg" className="w-full sm:w-auto">
-                  <Printer className="mr-2 h-5 w-5" />
-                  Print Label
-                </Button>
-                <Button variant="outline" onClick={handleReset} size="lg" className="w-full sm:w-auto">
-                  Add Another Unit
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+                
+                <div className="flex flex-col sm:flex-row justify-center gap-3">
+                  <Button onClick={() => handlePrint()} size="lg" className="w-full sm:w-auto">
+                    <Printer className="mr-2 h-5 w-5" />
+                    Print Label
+                  </Button>
+                  <Button variant="outline" onClick={handleReset} size="lg" className="w-full sm:w-auto">
+                    Add Another Unit
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </Step>
+        </Stepper>
 
         <BarcodeScanner
           opened={showBarcodeScanner}

@@ -246,7 +246,7 @@ export function AdvancedInventoryFilters({
             variant={filters.expirationWindow === window.value ? 'default' : 'outline'}
             size="sm"
             onClick={() => updateExpirationWindow(window.value)}
-            className="gap-2"
+            className="gap-2 text-xs sm:text-sm"
           >
             {window.label}
           </Button>
@@ -256,7 +256,7 @@ export function AdvancedInventoryFilters({
       {/* Active Filters Display */}
       {activeFilterCount > 0 && (
         <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-sm text-muted-foreground">{activeFilterCount} filter(s) active:</span>
+          <span className="text-xs sm:text-sm text-muted-foreground">{activeFilterCount} filter(s) active:</span>
           {filters.expirationWindow && filters.expirationWindow !== 'ALL' && (
             <Badge variant="secondary" className="gap-1">
               {EXPIRATION_WINDOWS.find(w => w.value === filters.expirationWindow)?.label}
@@ -267,7 +267,7 @@ export function AdvancedInventoryFilters({
             </Badge>
           )}
           {filters.medicationName && (
-            <Badge variant="secondary" className="gap-1">
+            <Badge variant="secondary" className="gap-1 text-xs">
               Medication: {filters.medicationName}
               <X
                 className="h-3 w-3 cursor-pointer"
@@ -276,7 +276,7 @@ export function AdvancedInventoryFilters({
             </Badge>
           )}
           {filters.locationIds && filters.locationIds.length > 0 && (
-            <Badge variant="secondary" className="gap-1">
+            <Badge variant="secondary" className="gap-1 text-xs">
               {filters.locationIds.length} Location(s)
               <X
                 className="h-3 w-3 cursor-pointer"
@@ -284,7 +284,7 @@ export function AdvancedInventoryFilters({
               />
             </Badge>
           )}
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs sm:text-sm">
             Clear All
           </Button>
         </div>
@@ -292,9 +292,9 @@ export function AdvancedInventoryFilters({
 
       {/* Advanced Filters Collapsible */}
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <CollapsibleTrigger asChild>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2 w-full sm:w-auto">
               <Filter className="h-4 w-4" />
               Advanced Filters
               {activeFilterCount > 0 && (
@@ -303,7 +303,7 @@ export function AdvancedInventoryFilters({
             </Button>
           </CollapsibleTrigger>
           {onExport && (
-            <Button variant="outline" onClick={onExport} className="gap-2">
+            <Button variant="outline" onClick={onExport} className="gap-2 w-full sm:w-auto">
               <Download className="h-4 w-4" />
               Export
             </Button>
@@ -313,13 +313,13 @@ export function AdvancedInventoryFilters({
         <CollapsibleContent className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Filter Options</CardTitle>
+              <CardTitle className="text-sm sm:text-base">Filter Options</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4 sm:space-y-6">
               {/* Date Range */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <Label>Expiry From</Label>
+                  <Label className="text-sm">Expiry From</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -345,7 +345,7 @@ export function AdvancedInventoryFilters({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Expiry To</Label>
+                  <Label className="text-sm">Expiry To</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -373,7 +373,7 @@ export function AdvancedInventoryFilters({
 
               {/* Medication Search */}
               <div className="space-y-2">
-                <Label>Medication Name</Label>
+                <Label className="text-sm">Medication Name</Label>
                 <Input
                   placeholder="Search by medication name..."
                   value={filters.medicationName || ''}
@@ -393,7 +393,7 @@ export function AdvancedInventoryFilters({
               )}
 
               <div className="space-y-2">
-                <Label>Generic Name</Label>
+                <Label className="text-sm">Generic Name</Label>
                 <Input
                   placeholder="Search by generic name..."
                   value={filters.genericName || ''}
@@ -402,7 +402,7 @@ export function AdvancedInventoryFilters({
               </div>
 
               <div className="space-y-2">
-                <Label>NDC ID</Label>
+                <Label className="text-sm">NDC ID</Label>
                 <Input
                   placeholder="Enter NDC ID..."
                   value={filters.ndcId || ''}
@@ -413,7 +413,7 @@ export function AdvancedInventoryFilters({
               {/* Location Filter */}
               {locationsData?.getLocations && locationsData.getLocations.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Location</Label>
+                  <Label className="text-sm">Location</Label>
                   <Select
                     value={filters.locationIds?.[0] || 'all'}
                     onValueChange={(value: string) => {
@@ -436,8 +436,8 @@ export function AdvancedInventoryFilters({
               )}
 
               {/* Strength Range */}
-              <div className="space-y-4">
-                <Label>Strength Range (mg)</Label>
+              <div className="space-y-3 sm:space-y-4">
+                <Label className="text-sm">Strength Range (mg)</Label>
                 <div className="px-2">
                   <Slider
                     min={0}
@@ -458,9 +458,9 @@ export function AdvancedInventoryFilters({
               </div>
 
               {/* Sorting */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <Label>Sort By</Label>
+                  <Label className="text-sm">Sort By</Label>
                   <Select
                     value={filters.sortBy || 'EXPIRY_DATE'}
                     onValueChange={(value: string) => {
@@ -481,7 +481,7 @@ export function AdvancedInventoryFilters({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Order</Label>
+                  <Label className="text-sm">Order</Label>
                   <Select
                     value={filters.sortOrder || 'ASC'}
                     onValueChange={(value: string) => {

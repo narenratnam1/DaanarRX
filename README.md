@@ -2,8 +2,8 @@
 
 A comprehensive web application for non-profit clinics to track and distribute donated prescription medications.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-15.0-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.1-black)](https://nextjs.org/)
 [![License](https://img.shields.io/badge/License-Proprietary-red)]()
 
 ## 📋 Table of Contents
@@ -49,7 +49,7 @@ cp env-example.txt .env.local
 npm run verify
 
 # 5. Start the application
-npm run dev:all
+npm run dev
 ```
 
 **That's it!** Open http://localhost:3000 and sign up to create your clinic.
@@ -116,10 +116,6 @@ After installation completes, you'll see helpful next steps automatically displa
    
    # Required - Generate with: openssl rand -base64 32
    JWT_SECRET=your_random_secret_at_least_32_characters
-   
-   # Development defaults (can leave as-is)
-   NEXT_PUBLIC_GRAPHQL_URL=http://localhost:4000/graphql
-   ALLOWED_ORIGINS=http://localhost:3000,http://localhost:4000
    ```
 
 3. **Verify your setup:**
@@ -170,39 +166,25 @@ If you want to enable Google Sign-In:
 
 ### Development Mode
 
-**Start both frontend and backend together (recommended):**
-```bash
-npm run dev:all
-```
-
-This starts:
-- 🌐 Next.js frontend: http://localhost:3000
-- 🔌 GraphQL backend: http://localhost:4000/graphql
-
-**Or run separately in two terminals:**
-
-Terminal 1 - Frontend:
+**Start the development server:**
 ```bash
 npm run dev
 ```
 
-Terminal 2 - Backend:
-```bash
-npm run server
-```
+This starts:
+- 🌐 Next.js frontend: http://localhost:3000
+- 🔌 GraphQL API: http://localhost:3000/api/graphql (integrated)
+
+The GraphQL API runs as a Next.js API route, so everything is served from one process!
 
 ### Production Build
 
 ```bash
-# Build frontend
+# Build the application
 npm run build
 
-# Build backend
-npm run build:server
-
-# Start production servers
-npm run start          # Frontend
-npm run start:server   # Backend
+# Start production server
+npm run start
 ```
 
 ## 🎨 Core Features
@@ -350,19 +332,16 @@ npm run verify
 3. Paste and run in SQL Editor
 4. Verify RLS policies are enabled
 
-### GraphQL endpoint not connecting
+### GraphQL endpoint not accessible
 
-**Problem:** Backend server not running  
+**Problem:** GraphQL queries failing  
 **Solution:**
 ```bash
-# Check if port 4000 is in use
-lsof -i :4000
+# GraphQL runs as part of Next.js on port 3000
+# Make sure the dev server is running
+npm run dev
 
-# Start backend server
-npm run server
-
-# Or start both together
-npm run dev:all
+# GraphQL endpoint: http://localhost:3000/api/graphql
 ```
 
 ### TypeScript errors
@@ -380,13 +359,13 @@ npx tsc --version  # Should be 5.6+
 
 ### Port already in use
 
-**Problem:** Port 3000 or 4000 already in use  
+**Problem:** Port 3000 already in use  
 **Solution:**
 ```bash
 # Find and kill process on port 3000
 lsof -ti:3000 | xargs kill -9
 
-# Or use different port
+# Or use a different port
 PORT=3001 npm run dev
 ```
 
@@ -486,10 +465,9 @@ Both APIs are called automatically and results are cached locally.
 |---------|-------------|
 | `npm install` | Install dependencies with helpful post-install messages |
 | `npm run verify` | Verify your development environment is properly configured |
-| `npm run dev:all` | Start both frontend and backend servers |
-| `npm run dev` | Start frontend only |
-| `npm run server` | Start backend only |
+| `npm run dev` | Start the development server (includes GraphQL API) |
 | `npm run build` | Build for production |
+| `npm run start` | Start production server |
 | `npm run lint` | Run ESLint |
 | `npm test` | Run tests |
 
@@ -503,8 +481,9 @@ Both APIs are called automatically and results are cached locally.
 - [ ] `.env.local` created with all credentials
 - [ ] JWT_SECRET generated
 - [ ] Setup verified (`npm run verify`)
-- [ ] Application started (`npm run dev:all`)
+- [ ] Application started (`npm run dev`)
 - [ ] Can access http://localhost:3000
+- [ ] GraphQL API available at http://localhost:3000/api/graphql
 - [ ] Created first account (Superadmin)
 
 ## 🔒 HIPAA Compliance Notes

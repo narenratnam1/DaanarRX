@@ -6,20 +6,37 @@ import { Location, Lot } from '@/types';
  * Returns the sum of total_quantity from all units in the lot
  */
 export async function getLotCurrentCapacity(lotId: string): Promise<number> {
-  const { data: units, error } = await supabaseServer
-    .from('units')
-    .select('total_quantity')
-    .eq('lot_id', lotId);
+  try {
+    const { data: units, error } = await supabaseServer
+      .from('units')
+      .select('total_quantity')
+      .eq('lot_id', lotId);
 
-  if (error) {
-    throw new Error(`Failed to calculate lot capacity: ${error.message}`);
+    if (error) {
+      console.error('Supabase error calculating lot capacity:', {
+        lotId,
+        error,
+        errorMessage: error.message,
+        errorCode: error.code,
+        errorDetails: error.details,
+        errorHint: error.hint,
+      });
+      throw new Error(`Failed to calculate lot capacity: ${error.message || error.code || 'Unknown Supabase error'}`);
+    }
+
+    if (!units || units.length === 0) {
+      return 0;
+    }
+
+    return units.reduce((sum, unit) => sum + (unit.total_quantity || 0), 0);
+  } catch (error: any) {
+    console.error('Exception calculating lot capacity:', {
+      lotId,
+      error: error.message,
+      stack: error.stack,
+    });
+    throw error;
   }
-
-  if (!units || units.length === 0) {
-    return 0;
-  }
-
-  return units.reduce((sum, unit) => sum + (unit.total_quantity || 0), 0);
 }
 
 /**

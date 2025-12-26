@@ -459,8 +459,92 @@ export default function InventoryPage() {
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
           ) : units.length > 0 ? (
-            <>
-              <div className="overflow-x-auto -mx-1">
+            <div className="space-y-4">
+              {/* Mobile Card View */}
+              <div className="block lg:hidden space-y-3">
+                {units.map((unit) => {
+                  const isExpired = new Date(unit.expiryDate) < new Date();
+                  const isExpiringSoon = new Date(unit.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+                  return (
+                    <Card 
+                      key={unit.unitId}
+                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => handleRowClick(unit)}
+                    >
+                      <CardContent className="pt-4 pb-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm break-words">{unit.drug.medicationName}</p>
+                            <p className="text-xs text-muted-foreground mt-1 break-words">{unit.drug.genericName}</p>
+                          </div>
+                          <Badge variant={unit.availableQuantity > 0 ? 'default' : 'secondary'} className="px-2 py-1 text-xs whitespace-nowrap flex-shrink-0">
+                            {unit.availableQuantity} / {unit.totalQuantity}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="px-2 py-1 text-xs">
+                            {unit.drug.strength} {unit.drug.strengthUnit}
+                          </Badge>
+                          <Badge
+                            variant={isExpired ? 'destructive' : isExpiringSoon ? 'outline' : 'secondary'}
+                            className={cn(
+                              'px-2 py-1 text-xs',
+                              !isExpired && isExpiringSoon && 'border-warning/50 text-warning bg-warning/5'
+                            )}
+                          >
+                            {new Date(unit.expiryDate).toLocaleDateString()}
+                          </Badge>
+                          {unit.lot?.location && (
+                            <Badge variant="outline" className="px-2 py-1 text-xs">
+                              {unit.lot.location.name}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{unit.lot?.source || 'No source'}</span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); handleQuickCheckout(unit, e as any); }}
+                                disabled={unit.availableQuantity === 0}
+                              >
+                                <ShoppingCart className="mr-2 h-4 w-4" />
+                                Quick Checkout
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRowClick(unit); }}>
+                                <QrCodeIcon className="mr-2 h-4 w-4" />
+                                View QR Code
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); handleQuarantine(unit, e as any); }}
+                                disabled={unit.availableQuantity === 0}
+                                className="text-orange-600"
+                              >
+                                <AlertTriangle className="mr-2 h-4 w-4" />
+                                Quarantine
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -637,7 +721,7 @@ export default function InventoryPage() {
                   </Pagination>
                 </div>
               )}
-            </>
+            </div>
           ) : (
             <div className="py-8 text-center text-muted-foreground">
               No units found
@@ -736,18 +820,18 @@ export default function InventoryPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm font-medium">Medication:</p>
-                        <p className="text-sm text-muted-foreground">{selectedUnit.drug.medicationName}</p>
+                        <p className="text-sm text-muted-foreground break-words">{selectedUnit.drug.medicationName}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium">Generic:</p>
-                        <p className="text-sm text-muted-foreground">{selectedUnit.drug.genericName}</p>
+                        <p className="text-sm text-muted-foreground break-words">{selectedUnit.drug.genericName}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium">Strength:</p>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="mt-1">
                           {selectedUnit.drug.strength} {selectedUnit.drug.strengthUnit}
                         </Badge>
                       </div>
@@ -755,14 +839,14 @@ export default function InventoryPage() {
                         <p className="text-sm font-medium">Form:</p>
                         <p className="text-sm text-muted-foreground">{selectedUnit.drug.form}</p>
                       </div>
-                      <div>
+                      <div className="sm:col-span-2">
                         <p className="text-sm font-medium">NDC:</p>
-                        <p className="text-sm font-mono text-muted-foreground">{selectedUnit.drug.ndcId}</p>
+                        <p className="text-sm font-mono text-muted-foreground break-all">{selectedUnit.drug.ndcId}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium">Available / Total:</p>
                         {isEditMode && editedUnit ? (
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 items-center mt-1">
                             <Input
                               type="number"
                               min="0"
@@ -771,9 +855,9 @@ export default function InventoryPage() {
                                 ...editedUnit,
                                 availableQuantity: parseInt(e.target.value) || 0
                               })}
-                              className="h-8 w-20"
+                              className="h-8 w-16 sm:w-20"
                             />
-                            <span className="text-sm text-muted-foreground self-center">/</span>
+                            <span className="text-sm text-muted-foreground">/</span>
                             <Input
                               type="number"
                               min="0"
@@ -782,11 +866,11 @@ export default function InventoryPage() {
                                 ...editedUnit,
                                 totalQuantity: parseInt(e.target.value) || 0
                               })}
-                              className="h-8 w-20"
+                              className="h-8 w-16 sm:w-20"
                             />
                           </div>
                         ) : (
-                          <Badge variant={selectedUnit.availableQuantity > 0 ? 'default' : 'secondary'}>
+                          <Badge variant={selectedUnit.availableQuantity > 0 ? 'default' : 'secondary'} className="mt-1">
                             {selectedUnit.availableQuantity} / {selectedUnit.totalQuantity}
                           </Badge>
                         )}
@@ -801,10 +885,10 @@ export default function InventoryPage() {
                               ...editedUnit,
                               expiryDate: e.target.value
                             })}
-                            className="h-8"
+                            className="h-8 mt-1"
                           />
                         ) : (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-muted-foreground mt-1">
                             {new Date(selectedUnit.expiryDate).toLocaleDateString()}
                           </p>
                         )}
@@ -813,12 +897,12 @@ export default function InventoryPage() {
                         <>
                           <div>
                             <p className="text-sm font-medium">Source:</p>
-                            <p className="text-sm text-muted-foreground">{selectedUnit.lot.source}</p>
+                            <p className="text-sm text-muted-foreground break-words">{selectedUnit.lot.source}</p>
                           </div>
                           {selectedUnit.lot.location && (
                             <div>
                               <p className="text-sm font-medium">Location:</p>
-                              <Badge variant="outline">
+                              <Badge variant="outline" className="mt-1">
                                 {selectedUnit.lot.location.name} ({selectedUnit.lot.location.temp.replace('_', ' ')})
                               </Badge>
                             </div>
@@ -895,32 +979,36 @@ export default function InventoryPage() {
                       </div>
                     ) : transactionsData?.getTransactions.transactions &&
                       transactionsData.getTransactions.transactions.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Date & Time</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Quantity</TableHead>
-                            <TableHead>User</TableHead>
-                            <TableHead>Notes</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {transactionsData.getTransactions.transactions.map((tx) => (
-                            <TableRow key={tx.transactionId}>
-                              <TableCell className="text-sm">{new Date(tx.timestamp).toLocaleString()}</TableCell>
-                              <TableCell>
-                                <Badge variant={tx.type === 'check_in' ? 'default' : tx.type === 'check_out' ? 'secondary' : 'outline'}>
-                                  {tx.type.replace('_', ' ')}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{tx.quantity}</TableCell>
-                              <TableCell className="text-sm">{tx.user?.username || '-'}</TableCell>
-                              <TableCell className="text-sm">{tx.notes || '-'}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                      <div className="overflow-x-auto -mx-6 sm:-mx-6">
+                        <div className="inline-block min-w-full align-middle">
+                          <Table className="min-w-full">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="min-w-[140px]">Date & Time</TableHead>
+                                <TableHead className="min-w-[80px]">Type</TableHead>
+                                <TableHead className="min-w-[70px]">Quantity</TableHead>
+                                <TableHead className="min-w-[90px]">User</TableHead>
+                                <TableHead className="min-w-[100px]">Notes</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {transactionsData.getTransactions.transactions.map((tx) => (
+                                <TableRow key={tx.transactionId}>
+                                  <TableCell className="text-xs sm:text-sm whitespace-nowrap">{new Date(tx.timestamp).toLocaleString()}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={tx.type === 'check_in' ? 'default' : tx.type === 'check_out' ? 'secondary' : 'outline'} className="text-xs">
+                                      {tx.type.replace('_', ' ')}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-sm">{tx.quantity}</TableCell>
+                                  <TableCell className="text-xs sm:text-sm">{tx.user?.username || '-'}</TableCell>
+                                  <TableCell className="text-xs sm:text-sm break-words">{tx.notes || '-'}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">No transactions found</p>
                     )}

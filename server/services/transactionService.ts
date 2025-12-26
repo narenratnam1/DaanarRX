@@ -128,15 +128,22 @@ export async function checkOutMedicationFEFO(
     const { error: updateError } = await supabaseServer
       .from('units')
       .update({ available_quantity: newAvailableQuantity })
-      .eq('unit_id', unit.unit_id);
+      .eq('unit_id', unit.unit_id)
+      .eq('clinic_id', clinicId);
 
     if (updateError) {
+      console.error('FEFO: Error updating unit quantity:', {
+        error: updateError,
+        unitId: unit.unit_id,
+        clinicId,
+      });
       // Rollback previous updates
       for (const usedUnit of unitsUsed) {
         const { data: rollbackUnit } = await supabaseServer
           .from('units')
           .select('available_quantity')
           .eq('unit_id', usedUnit.unitId)
+          .eq('clinic_id', clinicId)
           .single();
         
         if (rollbackUnit) {
@@ -145,7 +152,8 @@ export async function checkOutMedicationFEFO(
             .update({ 
               available_quantity: rollbackUnit.available_quantity + usedUnit.quantityTaken
             })
-            .eq('unit_id', usedUnit.unitId);
+            .eq('unit_id', usedUnit.unitId)
+            .eq('clinic_id', clinicId);
         }
       }
       throw new Error(`Failed to update unit: ${updateError.message}`);
@@ -164,20 +172,22 @@ export async function checkOutMedicationFEFO(
         notes: input.notes || `FEFO checkout - Unit ${unitsUsed.length + 1} of batch`,
         clinic_id: clinicId,
       })
-      .select(`
-        *,
-        unit:units!transactions_unit_id_fkey(*, drug:drugs(*)),
-        user:users(*)
-      `)
+      .select('*')
       .single();
 
     if (transactionError || !transaction) {
+      console.error('FEFO: Error creating transaction:', {
+        error: transactionError,
+        unitId: unit.unit_id,
+        clinicId,
+      });
       // Rollback all updates
       for (const usedUnit of unitsUsed) {
         const { data: rollbackUnit } = await supabaseServer
           .from('units')
           .select('available_quantity')
           .eq('unit_id', usedUnit.unitId)
+          .eq('clinic_id', clinicId)
           .single();
         
         if (rollbackUnit) {
@@ -186,19 +196,36 @@ export async function checkOutMedicationFEFO(
             .update({ 
               available_quantity: rollbackUnit.available_quantity + usedUnit.quantityTaken
             })
-            .eq('unit_id', usedUnit.unitId);
+            .eq('unit_id', usedUnit.unitId)
+            .eq('clinic_id', clinicId);
         }
       }
       // Rollback current unit
       await supabaseServer
         .from('units')
         .update({ available_quantity: unit.available_quantity })
-        .eq('unit_id', unit.unit_id);
+        .eq('unit_id', unit.unit_id)
+        .eq('clinic_id', clinicId);
 
-      throw new Error(`Failed to create transaction: ${transactionError?.message}`);
+      throw new Error(`Failed to create transaction: ${transactionError?.message || 'Unknown error'}`);
     }
 
-    transactions.push(formatTransaction(transaction));
+    // Fetch complete transaction with joins
+    const { data: completeTransaction, error: fetchError } = await supabaseServer
+      .from('transactions')
+      .select(`
+        *,
+        unit:units!transactions_unit_id_fkey(*, drug:drugs(*)),
+        user:users(*)
+      `)
+      .eq('transaction_id', transaction.transaction_id)
+      .single();
+
+    if (fetchError) {
+      console.error('FEFO: Error fetching complete transaction:', fetchError);
+    }
+
+    transactions.push(formatTransaction(completeTransaction || transaction));
     unitsUsed.push({
       unitId: unit.unit_id,
       quantityTaken: quantityToTake,
@@ -248,9 +275,15 @@ export async function checkOutUnit(
   const { error: updateError } = await supabaseServer
     .from('units')
     .update({ available_quantity: newAvailableQuantity })
-    .eq('unit_id', input.unitId);
+    .eq('unit_id', input.unitId)
+    .eq('clinic_id', clinicId);
 
   if (updateError) {
+    console.error('Error updating unit quantity:', {
+      error: updateError,
+      unitId: input.unitId,
+      clinicId,
+    });
     throw new Error(`Failed to update unit: ${updateError.message}`);
   }
 
@@ -267,24 +300,47 @@ export async function checkOutUnit(
       notes: input.notes,
       clinic_id: clinicId,
     })
+    .select('*')
+    .single();
+
+  if (transactionError || !transaction) {
+    console.error('Error creating checkout transaction:', {
+      error: transactionError,
+      unitId: input.unitId,
+      clinicId,
+    });
+    // Rollback unit update
+    await supabaseServer
+      .from('units')
+      .update({ available_quantity: unit.available_quantity })
+      .eq('unit_id', input.unitId)
+      .eq('clinic_id', clinicId);
+
+    throw new Error(`Failed to create transaction: ${transactionError?.message || 'Unknown error'}`);
+  }
+
+  // Fetch complete transaction with joins
+  const { data: completeTransaction, error: fetchError } = await supabaseServer
+    .from('transactions')
     .select(`
       *,
       unit:units!transactions_unit_id_fkey(*),
       user:users(*)
     `)
+    .eq('transaction_id', transaction.transaction_id)
     .single();
 
-  if (transactionError || !transaction) {
-    // Rollback unit update
-    await supabaseServer
-      .from('units')
-      .update({ available_quantity: unit.available_quantity })
-      .eq('unit_id', input.unitId);
-
-    throw new Error(`Failed to create transaction: ${transactionError?.message}`);
+  if (fetchError || !completeTransaction) {
+    console.error('Error fetching complete transaction:', fetchError);
+    // Return basic transaction data
+    return {
+      ...transaction,
+      unit: null,
+      user: null,
+    } as any;
   }
 
-  return formatTransaction(transaction);
+  return formatTransaction(completeTransaction);
 }
 
 /**

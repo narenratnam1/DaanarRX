@@ -57,38 +57,82 @@ export async function createUnit(
       manufacturer_lot_number: input.manufacturerLotNumber,
       clinic_id: clinicId,
     })
+    .select('*')
+    .single();
+
+  if (error || !unit) {
+    console.error('Error creating unit:', {
+      error,
+      errorMessage: error?.message,
+      errorDetails: error?.details,
+      errorHint: error?.hint,
+      input: {
+        ...input,
+        drugId,
+        userId,
+        clinicId,
+      },
+    });
+    throw new Error(`Failed to create unit: ${error?.message || 'Unknown error'}`);
+  }
+
+  // Update the unit with its own ID as the QR code (simple and effective)
+  const { error: qrError } = await supabaseServer
+    .from('units')
+    .update({ qr_code: unit.unit_id })
+    .eq('unit_id', unit.unit_id);
+
+  if (qrError) {
+    console.error('Error updating QR code:', qrError);
+  }
+
+  // Add qr_code to the returned unit
+  unit.qr_code = unit.unit_id;
+
+  // Create check-in transaction
+  const { error: transactionError } = await supabaseServer
+    .from('transactions')
+    .insert({
+      type: 'check_in',
+      quantity: input.totalQuantity,
+      unit_id: unit.unit_id,
+      user_id: userId,
+      notes: `Initial check-in`,
+      clinic_id: clinicId,
+    });
+
+  if (transactionError) {
+    console.error('Error creating transaction:', transactionError);
+    // Transaction creation failed, but unit was created
+    // Log the error but don't fail the whole operation
+    // The unit is still valid and can be used
+  }
+
+  // Now fetch the complete unit with all relations
+  const { data: completeUnit, error: fetchError } = await supabaseServer
+    .from('units')
     .select(`
       *,
       drug:drugs(*),
       lot:lots!units_lot_id_fkey(*),
       user:users(*)
     `)
+    .eq('unit_id', unit.unit_id)
     .single();
 
-  if (error || !unit) {
-    throw new Error(`Failed to create unit: ${error?.message}`);
+  if (fetchError || !completeUnit) {
+    console.error('Error fetching complete unit:', fetchError);
+    // Return the basic unit data we have
+    // This ensures the unit shows up even if the join fails
+    return {
+      ...unit,
+      drug: null,
+      lot: null,
+      user: null,
+    } as any;
   }
 
-  // Update the unit with its own ID as the QR code (simple and effective)
-  await supabaseServer
-    .from('units')
-    .update({ qr_code: unit.unit_id })
-    .eq('unit_id', unit.unit_id);
-
-  // Add qr_code to the returned unit
-  unit.qr_code = unit.unit_id;
-
-  // Create check-in transaction
-  await supabaseServer.from('transactions').insert({
-    type: 'check_in',
-    quantity: input.totalQuantity,
-    unit_id: unit.unit_id,
-    user_id: userId,
-    notes: `Initial check-in`,
-    clinic_id: clinicId,
-  });
-
-  return formatUnit(unit);
+  return formatUnit(completeUnit);
 }
 
 /**

@@ -191,8 +191,70 @@ export default function ReportsPage() {
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
           ) : data?.getTransactions.transactions && data.getTransactions.transactions.length > 0 ? (
-            <>
-              <div className="overflow-x-auto -mx-1">
+            <div className="space-y-4">
+              {/* Mobile Card View */}
+              <div className="block md:hidden space-y-3">
+                {data.getTransactions.transactions.map((tx) => (
+                  <Card 
+                    key={tx.transactionId}
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleRowClick(tx)}
+                  >
+                    <CardContent className="pt-4 pb-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm break-words">
+                            {tx.unit?.drug?.medicationName || 'Unknown Medication'}
+                          </p>
+                          {tx.unit?.drug && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {tx.unit.drug.strength} {tx.unit.drug.strengthUnit} - {tx.unit.drug.form}
+                            </p>
+                          )}
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'px-2 py-1 font-semibold text-xs whitespace-nowrap flex-shrink-0',
+                            tx.type === 'check_out' && 'border-destructive/50 text-destructive bg-destructive/5',
+                            tx.type === 'check_in' && 'border-success/50 text-success bg-success/5'
+                          )}
+                        >
+                          {tx.type === 'check_out' ? `-${tx.quantity}` : `+${tx.quantity}`}
+                        </Badge>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant={getTypeBadgeVariant(tx.type)} className="px-2 py-1 text-xs capitalize">
+                          {tx.type.replace('_', ' ')}
+                        </Badge>
+                        {tx.unit?.lot?.location && (
+                          <Badge variant="outline" className="px-2 py-1 text-xs">
+                            {tx.unit.lot.location.name}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{formatDate(tx.timestamp)}</span>
+                        <span>{tx.user?.username || 'Unknown'}</span>
+                      </div>
+
+                      {(tx.patientName || tx.patientReferenceId) && (
+                        <div className="pt-2 border-t">
+                          {tx.patientName && <p className="text-xs font-medium">Patient: {tx.patientName}</p>}
+                          {tx.patientReferenceId && (
+                            <p className="text-xs text-muted-foreground">Ref: {tx.patientReferenceId}</p>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -206,7 +268,7 @@ export default function ReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data?.getTransactions.transactions.map((tx) => (
+                    {data.getTransactions.transactions.map((tx) => (
                       <TableRow
                         key={tx.transactionId}
                         onClick={() => handleRowClick(tx)}
@@ -217,7 +279,7 @@ export default function ReportsPage() {
                           {tx.unit?.drug ? (
                             <div className="space-y-1">
                               <p className="text-sm font-semibold">{tx.unit.drug.medicationName}</p>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-xs text-muted-foreground">
                                 {tx.unit.drug.strength} {tx.unit.drug.strengthUnit} - {tx.unit.drug.form}
                               </p>
                             </div>
@@ -257,7 +319,7 @@ export default function ReportsPage() {
                             <div className="space-y-1">
                               {tx.patientName && <p className="text-sm font-medium">{tx.patientName}</p>}
                               {tx.patientReferenceId && (
-                                <p className="text-sm text-muted-foreground">Ref: {tx.patientReferenceId}</p>
+                                <p className="text-xs text-muted-foreground">Ref: {tx.patientReferenceId}</p>
                               )}
                             </div>
                           ) : (
@@ -303,7 +365,7 @@ export default function ReportsPage() {
                   </Pagination>
                 </div>
               )}
-            </>
+            </div>
           ) : (
             <div className="py-16 text-center">
               <p className="text-lg text-muted-foreground">No transactions found</p>
@@ -316,7 +378,7 @@ export default function ReportsPage() {
           setModalOpened(false);
           setSelectedTransaction(null);
         }}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Transaction Details</DialogTitle>
             </DialogHeader>
@@ -325,13 +387,13 @@ export default function ReportsPage() {
                 {/* Action Details */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Action Details</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">Action Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-muted-foreground">Transaction ID:</p>
-                        <p className="text-sm font-mono">{selectedTransaction.transactionId}</p>
+                        <p className="text-xs sm:text-sm font-mono break-all">{selectedTransaction.transactionId}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Type:</p>
@@ -372,10 +434,10 @@ export default function ReportsPage() {
                 {/* Timestamp */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Timestamp</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">Timestamp</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-muted-foreground">Date:</p>
                         <p className="text-sm">{new Date(selectedTransaction.timestamp).toLocaleDateString()}</p>
@@ -396,19 +458,19 @@ export default function ReportsPage() {
                 {selectedTransaction.type === 'check_out' && (selectedTransaction.patientName || selectedTransaction.patientReferenceId) && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Patient Information</CardTitle>
+                      <CardTitle className="text-base sm:text-lg">Patient Information</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {selectedTransaction.patientName && (
-                        <div className="grid grid-cols-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                           <p className="text-sm text-muted-foreground">Patient Name:</p>
-                          <p className="text-sm">{selectedTransaction.patientName}</p>
+                          <p className="text-sm break-words">{selectedTransaction.patientName}</p>
                         </div>
                       )}
                       {selectedTransaction.patientReferenceId && (
-                        <div className="grid grid-cols-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                           <p className="text-sm text-muted-foreground">Reference ID:</p>
-                          <p className="text-sm font-mono">{selectedTransaction.patientReferenceId}</p>
+                          <p className="text-xs sm:text-sm font-mono break-all">{selectedTransaction.patientReferenceId}</p>
                         </div>
                       )}
                     </CardContent>
@@ -419,18 +481,18 @@ export default function ReportsPage() {
                 {selectedTransaction.unit && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Medication Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Medication:</p>
-                          <p className="text-sm font-semibold">{selectedTransaction.unit.drug.medicationName}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Generic Name:</p>
-                          <p className="text-sm">{selectedTransaction.unit.drug.genericName}</p>
-                        </div>
+                    <CardTitle className="text-base sm:text-lg">Medication Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Medication:</p>
+                        <p className="text-sm font-semibold break-words">{selectedTransaction.unit.drug.medicationName}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Generic Name:</p>
+                        <p className="text-sm break-words">{selectedTransaction.unit.drug.genericName}</p>
+                      </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Strength:</p>
                           <Badge variant="outline" className="mt-1">
@@ -441,10 +503,10 @@ export default function ReportsPage() {
                           <p className="text-sm text-muted-foreground">Form:</p>
                           <p className="text-sm">{selectedTransaction.unit.drug.form}</p>
                         </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">NDC:</p>
-                          <p className="text-sm font-mono">{selectedTransaction.unit.drug.ndcId}</p>
-                        </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-sm text-muted-foreground">NDC:</p>
+                        <p className="text-xs sm:text-sm font-mono break-all">{selectedTransaction.unit.drug.ndcId}</p>
+                      </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Current Stock:</p>
                           <Badge 
@@ -467,10 +529,10 @@ export default function ReportsPage() {
                       {selectedTransaction.unit.lot && (
                         <>
                           <Separator />
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <p className="text-sm text-muted-foreground">Source:</p>
-                              <p className="text-sm">{selectedTransaction.unit.lot.source}</p>
+                              <p className="text-sm break-words">{selectedTransaction.unit.lot.source}</p>
                             </div>
                             {selectedTransaction.unit.lot.location && (
                               <div>
