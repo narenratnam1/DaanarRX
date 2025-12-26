@@ -21,6 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const GET_UNIT = gql`
   query GetUnit($unitId: ID!) {
@@ -201,7 +202,49 @@ export default function ScanPage() {
                   <CardTitle className="text-xl">Search Results</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto -mx-1">
+                  {/* Mobile Card View */}
+                  <div className="block md:hidden space-y-3">
+                    {searchData.searchUnitsByQuery.map((searchUnit: UnitData) => {
+                      const isExpired = new Date(searchUnit.expiryDate) < new Date();
+                      const isExpiringSoon = new Date(searchUnit.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+                      return (
+                        <Card
+                          key={searchUnit.unitId}
+                          className="cursor-pointer hover:shadow-md transition-all duration-200 active:scale-[0.98]"
+                          onClick={() => handleSelectUnit(searchUnit)}
+                        >
+                          <CardContent className="pt-4 pb-4 space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm break-words leading-tight">{searchUnit.drug.medicationName}</p>
+                                <p className="text-xs text-muted-foreground mt-1 break-words">{searchUnit.drug.genericName}</p>
+                              </div>
+                              <Badge 
+                                variant={searchUnit.availableQuantity > 0 ? 'default' : 'destructive'} 
+                                className="px-2 py-1 text-xs whitespace-nowrap flex-shrink-0"
+                              >
+                                {searchUnit.availableQuantity}
+                              </Badge>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t">
+                              <Badge
+                                variant={isExpired ? 'destructive' : isExpiringSoon ? 'outline' : 'secondary'}
+                                className="px-2 py-1 text-xs"
+                              >
+                                {new Date(searchUnit.expiryDate).toLocaleDateString()}
+                              </Badge>
+                              <span className="text-xs text-primary font-medium">Tap to select →</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto -mx-1">
                     <Table>
                       <TableHeader>
                         <TableRow>

@@ -478,7 +478,77 @@ function CheckOutContent() {
                   <CardTitle className="text-xl">Search Results ({searchData.searchUnitsByQuery.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto -mx-6 sm:-mx-6">
+                  {/* Mobile Card View */}
+                  <div className="block md:hidden space-y-3">
+                    {searchData.searchUnitsByQuery.map((unit: UnitData) => {
+                      const isExpired = new Date(unit.expiryDate) < new Date();
+                      const isExpiringSoon = new Date(unit.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+                      return (
+                        <Card 
+                          key={unit.unitId}
+                          className="cursor-pointer hover:shadow-md transition-all duration-200 active:scale-[0.98]"
+                          onClick={() => handleViewUnitDetails(unit)}
+                        >
+                          <CardContent className="pt-4 pb-4 space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm break-words leading-tight">{unit.drug.medicationName}</p>
+                                <p className="text-xs text-muted-foreground mt-1 break-words">{unit.drug.genericName}</p>
+                              </div>
+                              <Badge 
+                                variant={unit.availableQuantity > 0 ? 'default' : 'secondary'} 
+                                className="px-2 py-1 text-xs whitespace-nowrap flex-shrink-0"
+                              >
+                                {unit.availableQuantity}/{unit.totalQuantity}
+                              </Badge>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="px-2 py-1 text-xs">
+                                {unit.drug.strength} {unit.drug.strengthUnit}
+                              </Badge>
+                              <Badge
+                                variant={isExpired ? 'destructive' : isExpiringSoon ? 'outline' : 'secondary'}
+                                className={cn(
+                                  'px-2 py-1 text-xs',
+                                  !isExpired && isExpiringSoon && 'border-warning/50 text-warning bg-warning/5'
+                                )}
+                              >
+                                {new Date(unit.expiryDate).toLocaleDateString()}
+                              </Badge>
+                              {unit.lot?.location && (
+                                <Badge variant="outline" className="px-2 py-1 text-xs">
+                                  {unit.lot.location.name}
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t">
+                              <span className="text-xs text-muted-foreground truncate max-w-[150px]" title={unit.lot?.source}>
+                                {unit.lot?.source || 'No source'}
+                              </span>
+                              <Button
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectUnit(unit);
+                                }}
+                                disabled={unit.availableQuantity === 0}
+                                className="h-8 text-xs"
+                              >
+                                <ShoppingCart className="mr-1 h-3 w-3" />
+                                Select
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto -mx-6 sm:-mx-6">
                     <div className="inline-block min-w-full align-middle">
                       <Table className="min-w-full">
                       <TableHeader>
@@ -486,7 +556,7 @@ function CheckOutContent() {
                           <TableHead className="font-semibold min-w-[150px]">Medication</TableHead>
                           <TableHead className="font-semibold min-w-[100px]">Strength</TableHead>
                           <TableHead className="font-semibold min-w-[90px]">Available</TableHead>
-                          <TableHead className="font-semibold hidden md:table-cell min-w-[100px]">Expiry</TableHead>
+                          <TableHead className="font-semibold min-w-[100px]">Expiry</TableHead>
                           <TableHead className="font-semibold hidden lg:table-cell min-w-[100px]">Location</TableHead>
                           <TableHead className="font-semibold hidden lg:table-cell min-w-[100px]">Source</TableHead>
                           <TableHead className="w-[60px] font-semibold">Actions</TableHead>
@@ -517,7 +587,7 @@ function CheckOutContent() {
                                   {unit.availableQuantity} / {unit.totalQuantity}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="hidden md:table-cell">
+                              <TableCell>
                                 <Badge
                                   variant={isExpired ? 'destructive' : isExpiringSoon ? 'outline' : 'secondary'}
                                   className={cn(
