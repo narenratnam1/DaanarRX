@@ -245,7 +245,7 @@ export default function AdminPage() {
         </Card>
 
         <Dialog open={modalOpened} onOpenChange={setModalOpened}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle className="text-2xl">{editingLocation ? 'Edit Location' : 'Create Location'}</DialogTitle>
               <DialogDescription className="text-base">

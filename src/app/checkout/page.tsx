@@ -738,7 +738,7 @@ function CheckOutContent() {
         )}
 
         <Dialog open={isCheckoutConfirmOpen} onOpenChange={setIsCheckoutConfirmOpen}>
-          <DialogContent className="sm:max-w-[640px]">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[640px]">
             <DialogHeader>
               <DialogTitle>Choose checkout method</DialogTitle>
               <DialogDescription>
@@ -790,7 +790,7 @@ function CheckOutContent() {
 
         {/* Unit Details Modal */}
         <Dialog open={showUnitDetailsModal} onOpenChange={setShowUnitDetailsModal}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Unit Details</DialogTitle>
             </DialogHeader>

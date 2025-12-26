@@ -731,7 +731,7 @@ export default function InventoryPage() {
 
         {/* Unit Details Modal */}
         <Dialog open={modalOpened} onOpenChange={handleCloseModal}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Unit Details</DialogTitle>
             </DialogHeader>
@@ -1021,7 +1021,7 @@ export default function InventoryPage() {
 
         {/* Quick Checkout Modal */}
         <Dialog open={checkoutModalOpened} onOpenChange={setCheckoutModalOpened}>
-          <DialogContent className="sm:max-w-[400px]">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[400px]">
             <DialogHeader>
               <DialogTitle>Quick Checkout</DialogTitle>
             </DialogHeader>

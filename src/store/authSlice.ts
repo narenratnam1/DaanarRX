@@ -139,6 +139,8 @@ const authSlice = createSlice({
               localStorage.removeItem('clinics');
               localStorage.removeItem('authExpiresAt');
               localStorage.removeItem('lastActivity');
+              // Clear any stale logout reason since this is a silent token expiration
+              localStorage.removeItem('logoutReason');
             }
 
             state.user = null;

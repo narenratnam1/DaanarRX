@@ -378,7 +378,7 @@ export default function ReportsPage() {
           setModalOpened(false);
           setSelectedTransaction(null);
         }}>
-          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Transaction Details</DialogTitle>
             </DialogHeader>

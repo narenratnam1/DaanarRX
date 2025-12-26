@@ -228,7 +228,7 @@ export function QRScanner({
 
   return (
     <Dialog open={opened} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[600px]" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[600px]" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -250,15 +250,16 @@ export function QRScanner({
                 className="w-full min-h-[300px] rounded-lg overflow-hidden"
               />
 
-              <div className="flex justify-between">
+              <div className="flex flex-col sm:flex-row justify-between gap-2">
                 <Button
                   variant="ghost"
                   onClick={handleSwitchToManual}
+                  className="w-full sm:w-auto"
                 >
                   <Keyboard className="mr-2 h-4 w-4" />
                   Manual Entry
                 </Button>
-                <Button variant="outline" onClick={handleClose}>
+                <Button variant="outline" onClick={handleClose} className="w-full sm:w-auto">
                   Cancel
                 </Button>
               </div>
@@ -281,19 +282,20 @@ export function QRScanner({
                 />
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-col sm:flex-row justify-between gap-2">
                 <Button
                   variant="ghost"
                   onClick={handleSwitchToScanner}
+                  className="w-full sm:w-auto"
                 >
                   <QrCode className="mr-2 h-4 w-4" />
                   Back to Scanner
                 </Button>
-                <div className="flex gap-2">
-                  <Button onClick={handleManualSubmit}>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Button onClick={handleManualSubmit} className="w-full sm:w-auto">
                     Submit
                   </Button>
-                  <Button variant="outline" onClick={handleClose}>
+                  <Button variant="outline" onClick={handleClose} className="w-full sm:w-auto">
                     Cancel
                   </Button>
                 </div>

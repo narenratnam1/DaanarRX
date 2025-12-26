@@ -98,18 +98,26 @@ function SignInContent() {
     if (reason) {
       const info = getExpirationInfo(reason);
       setExpirationAlert(info);
+      // Clear any stale logout reason from localStorage since we have a URL param
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('logoutReason');
+      }
     } else if (timeout === 'true') {
       // Legacy support for old timeout parameter
       setExpirationAlert(getExpirationInfo('inactivity'));
-    }
-    
-    // Also check localStorage for logout reason
-    if (typeof window !== 'undefined') {
-      const storedReason = localStorage.getItem('logoutReason');
-      if (storedReason && !reason && timeout !== 'true') {
-        const info = getExpirationInfo(storedReason);
-        setExpirationAlert(info);
+      if (typeof window !== 'undefined') {
         localStorage.removeItem('logoutReason');
+      }
+    } else {
+      // Only check localStorage if there's no URL param
+      if (typeof window !== 'undefined') {
+        const storedReason = localStorage.getItem('logoutReason');
+        if (storedReason) {
+          const info = getExpirationInfo(storedReason);
+          setExpirationAlert(info);
+          // Immediately clear it so it doesn't persist
+          localStorage.removeItem('logoutReason');
+        }
       }
     }
   }, [searchParams]);

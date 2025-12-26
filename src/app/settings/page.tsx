@@ -649,7 +649,7 @@ export default function SettingsPage() {
         {/* Invitation Modal - Superadmin only */}
         {isSuperadmin && (
           <Dialog open={modalOpened} onOpenChange={setModalOpened}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Send Invitation</DialogTitle>
                 <DialogDescription>
@@ -704,7 +704,7 @@ export default function SettingsPage() {
         {/* Create New Clinic Modal (Superadmin only) */}
         {isSuperadmin && (
           <Dialog open={createClinicModalOpened} onOpenChange={setCreateClinicModalOpened}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Create New Clinic</DialogTitle>
                 <DialogDescription>
@@ -740,7 +740,7 @@ export default function SettingsPage() {
 
         {/* Delete Clinic Confirmation Modal */}
         <Dialog open={!!deleteClinicId} onOpenChange={() => setDeleteClinicId(null)}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Delete Clinic</DialogTitle>
               <DialogDescription>

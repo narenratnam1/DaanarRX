@@ -104,7 +104,7 @@ export function FeedbackModal({ opened, onClose }: FeedbackModalProps) {
 
   return (
     <Dialog open={opened} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Send Feedback</DialogTitle>
           <DialogDescription>
